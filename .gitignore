@@ -1,0 +1,8 @@
+build/
+DerivedData/
+Frameworks/
+*.xcodeproj/
+Config/Local.xcconfig
+posts/
+.DS_Store
+.agentlink/

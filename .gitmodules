@@ -1,0 +1,9 @@
+[submodule "vendor/chiaki-ng"]
+	path = vendor/chiaki-ng
+	url = https://github.com/streetpea/chiaki-ng.git
+[submodule "vendor/mbedtls"]
+	path = vendor/mbedtls
+	url = https://github.com/Mbed-TLS/mbedtls.git
+[submodule "vendor/opus"]
+	path = vendor/opus
+	url = https://github.com/xiph/opus.git

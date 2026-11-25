@@ -1,0 +1,465 @@
+# components-build-system.sh
+#
+# Copyright The Mbed TLS Contributors
+# SPDX-License-Identifier: Apache-2.0 OR GPL-2.0-or-later
+
+# This file contains test components that are executed by all.sh
+
+################################################################
+#### Build System Testing
+################################################################
+
+component_test_make_shared () {
+    msg "build/test: make shared" # ~ 40s
+    make SHARED=1 TEST_CPP=1 all check
+    ldd programs/util/strerror | grep libmbedcrypto
+    $FRAMEWORK/tests/programs/dlopen_demo.sh
+}
+
+component_test_cmake_shared () {
+    msg "build/test: cmake shared" # ~ 2min
+    cmake -DUSE_SHARED_MBEDTLS_LIBRARY=On .
+    make
+    ldd programs/util/strerror | grep libmbedcrypto
+    make test
+    $FRAMEWORK/tests/programs/dlopen_demo.sh
+}
+
+component_build_make_no_gen_files () {
+    msg "prepare for building in a minimal environment"
+
+    # Ensure that the generated files are present (should be a no-op
+    # since the all.sh infrastructure already does it).
+    make generated_files
+
+    # Arrange for the non-generated sources to be more recent than any
+    # generated file. This allows us to detect if the makefile tries
+    # to rebuild the generated files from their dependencies when it
+    # shouldn't.
+    # Wait 1 second so this test is effective even if the filesystem
+    # only has a granularity of 1 second for timestamps.
+    sleep 1
+    git ls-files -z | xargs -0 touch --
+
+    # The setup code of all.sh sets up a "quiet" wrapper for `make`.
+    # We want to bypass it and just use the normal make program,
+    # so that this test mimics a normal user's platform.
+    # And anyway we need to bypass it because it wouldn't work without bash
+    # and other tools in the $PATH.
+    # The wrapper is used because the setup code adds the
+    # `.../framework/scripts/quiet` directlry to the beginning of the $PATH.
+    # So here we remove that.
+    shopt -s extglob
+    # Strip off all entries in $PATH that ends with `/quiet`. (This misses
+    # the very last element, but we know we'll never need to remove the last
+    # element, since we just want to remove the wrapper directory that comes
+    # before the normal programs.)
+    PATH=${PATH//*([!:])\/quiet:/}
+
+    # Locate the minimum programs needed for the build: ${CC} and ${AR}.
+    AR="$(command -v ar)"
+    # GCC needs "as" in $PATH by default. To use GCC, we need to tell it where
+    # to find the assembler. Or we can use clang which just works.
+    CC="$(command -v clang)"
+    # For cleaning.
+    RM="$(command -v rm)"
+
+    # Test the build with make.
+    # Preferably we should also test with CMake. Note that a CMake test
+    # would be harder to set up, because CMake will find e.g. /usr/bin/python
+    # even if it isn't on $PATH.
+    msg "build: make lib with GEN_FILES off in minimal environment"
+    env PATH=/no/such/directory "$(command -v make)" GEN_FILES= AR="$AR" CC="$CC" lib
+
+    msg "build: make -C library clean with GEN_FILES off in minimal environment"
+    env PATH=/no/such/directory "$(command -v make)" GEN_FILES= RM="$RM" -C library clean
+
+    msg "build: make lib with GEN_FILES off with generated files missing"
+    make neat
+    # Check that a sample generated file is absent
+    not test -f library/error.c
+    PERL="$(command -v perl)"
+    PYTHON="$(command -v python3)"
+    # We take whatever Python environment we're in. For a future improvement,
+    # make a venv with just scripts/basic.requirements.txt.
+    env PATH=/no/such/directory "$(command -v make)" GEN_FILES= AR="$AR" CC="$CC" PERL="$PERL" PYTHON="$PYTHON" lib
+}
+
+support_test_cmake_out_of_source () {
+    distrib_id=""
+    distrib_ver=""
+    distrib_ver_minor=""
+    distrib_ver_major=""
+
+    # Attempt to parse lsb-release to find out distribution and version. If not
+    # found this should fail safe (test is supported).
+    if [[ -f /etc/lsb-release ]]; then
+
+        while read -r lsb_line; do
+            case "$lsb_line" in
+                "DISTRIB_ID"*) distrib_id=${lsb_line/#DISTRIB_ID=};;
+                "DISTRIB_RELEASE"*) distrib_ver=${lsb_line/#DISTRIB_RELEASE=};;
+            esac
+        done < /etc/lsb-release
+
+        distrib_ver_major="${distrib_ver%%.*}"
+        distrib_ver="${distrib_ver#*.}"
+        distrib_ver_minor="${distrib_ver%%.*}"
+    fi
+
+    # Running the out of source CMake test on Ubuntu 16.04 using more than one
+    # processor (as the CI does) can create a race condition whereby the build
+    # fails to see a generated file, despite that file actually having been
+    # generated. This problem appears to go away with 18.04 or newer, so make
+    # the out of source tests unsupported on Ubuntu 16.04.
+    [ "$distrib_id" != "Ubuntu" ] || [ "$distrib_ver_major" -gt 16 ]
+}
+
+component_test_cmake_out_of_source () {
+    # Remove existing generated files so that we use the ones cmake
+    # generates
+    make neat
+
+    msg "build: cmake 'out-of-source' build"
+    MBEDTLS_ROOT_DIR="$PWD"
+    mkdir "$OUT_OF_SOURCE_DIR"
+    cd "$OUT_OF_SOURCE_DIR"
+    # Note: Explicitly generate files as these are turned off in releases
+    cmake -D CMAKE_BUILD_TYPE:String=Check -D GEN_FILES=ON -D TEST_CPP=1 "$MBEDTLS_ROOT_DIR"
+    make
+
+    msg "test: cmake 'out-of-source' build"
+    make test
+    # Check that ssl-opt.sh can find the test programs.
+    # Also ensure that there are no error messages such as
+    # "No such file or directory", which would indicate that some required
+    # file is missing (ssl-opt.sh tolerates the absence of some files so
+    # may exit with status 0 but emit errors).
+    ./tests/ssl-opt.sh -f 'Default' >ssl-opt.out 2>ssl-opt.err
+    grep PASS ssl-opt.out
+    cat ssl-opt.err >&2
+    # If ssl-opt.err is non-empty, record an error and keep going.
+    [ ! -s ssl-opt.err ]
+    rm ssl-opt.out ssl-opt.err
+    cd "$MBEDTLS_ROOT_DIR"
+    rm -rf "$OUT_OF_SOURCE_DIR"
+}
+
+component_test_cmake_as_subdirectory () {
+    # Remove existing generated files so that we use the ones CMake
+    # generates
+    make neat
+
+    msg "build: cmake 'as-subdirectory' build"
+    cd programs/test/cmake_subproject
+    # Note: Explicitly generate files as these are turned off in releases
+    cmake -D GEN_FILES=ON .
+    make
+    ./cmake_subproject
+}
+
+support_test_cmake_as_subdirectory () {
+    support_test_cmake_out_of_source
+}
+
+component_test_cmake_as_package () {
+    # Remove existing generated files so that we use the ones CMake
+    # generates
+    make neat
+
+    msg "build: cmake 'as-package' build"
+    root_dir="$(pwd)"
+    cd programs/test/cmake_package
+    build_variant_dir="$(pwd)"
+    cmake .
+    make
+    ./cmake_package
+    if [[ "$OSTYPE" == linux* ]]; then
+        PKG_CONFIG_PATH="${build_variant_dir}/mbedtls/pkgconfig" \
+        ${root_dir}/framework/scripts/pkgconfig.sh \
+        mbedtls mbedx509 mbedcrypto
+        # These are the EXPECTED package names. Renaming these could break
+        # consumers of pkg-config, consider carefully.
+    fi
+}
+
+support_test_cmake_as_package () {
+    support_test_cmake_out_of_source
+}
+
+component_test_cmake_as_package_install () {
+    # Remove existing generated files so that we use the ones CMake
+    # generates
+    make neat
+
+    msg "build: cmake 'as-installed-package' build"
+    cd programs/test/cmake_package_install
+    cmake .
+    make
+    ./cmake_package_install
+}
+
+support_test_cmake_as_package_install () {
+    support_test_cmake_out_of_source
+}
+
+component_test_cmake_install_with_destdir () {
+    # Remove existing generated files so that we use the ones CMake
+    # generates
+    $MAKE_COMMAND neat
+
+    msg "install: cmake with DESTDIR staging"
+    MBEDTLS_ROOT_DIR="$PWD"
+    mkdir "$OUT_OF_SOURCE_DIR"
+    cd "$OUT_OF_SOURCE_DIR"
+    cmake -DGEN_FILES=ON -DENABLE_PROGRAMS=OFF -DENABLE_TESTING=OFF -DUSE_SHARED_MBEDTLS_LIBRARY=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr "$MBEDTLS_ROOT_DIR"
+    make
+
+    DESTDIR="$OUT_OF_SOURCE_DIR/stage" make install
+
+    install_lib_subdir="$(sed -n 's/^CMAKE_INSTALL_LIBDIR:PATH=//p' CMakeCache.txt)"
+    [ -n "$install_lib_subdir" ] # Failed to read CMAKE_INSTALL_LIBDIR from CMakeCache.txt
+
+    install_lib_path="$OUT_OF_SOURCE_DIR/stage/usr/${install_lib_subdir}"
+
+    if [[ "$OSTYPE" == darwin* ]]; then
+        # On macOS the custom install logic installs libmbedcrypto.dylib
+        # directly without a versioned symlink chain.
+        for lib in mbedcrypto mbedx509 mbedtls; do
+            [ -f "$install_lib_path/lib${lib}.a" ]
+            [ -e "$install_lib_path/lib${lib}.dylib" ]
+        done
+    else
+        # library/CMakeLists.txt installs libmbedcrypto.so with a versioned
+        # symlink chain on Linux.
+        for lib in mbedcrypto mbedx509 mbedtls; do
+            if [ "$QUIET" -eq 0 ]; then
+                echo "Checking lib=$lib"
+            fi
+            [ -f "$install_lib_path/lib${lib}.a" ]
+            [ -L "$install_lib_path/lib${lib}.so" ]
+            [ -e "$install_lib_path/lib${lib}.so" ]
+
+            # Match ABI-version names such as libxxx.so.17
+            # and check that symlink.
+            versioned=( "$install_lib_path/lib${lib}.so".+([0-9]) )
+            if [ "$QUIET" -eq 0 ]; then
+                declare -p versioned
+            fi
+            [ "${#versioned[@]}" -eq 1 ]
+            [ -L "${versioned[0]}" ]
+            [ -e "${versioned[0]}" ]
+        done
+    fi
+}
+
+support_test_cmake_install_with_destdir () {
+    support_test_cmake_out_of_source
+}
+
+component_build_cmake_custom_config_file () {
+    # Make a copy of config file to use for the in-tree test
+    cp "$CONFIG_H" include/mbedtls_config_in_tree_copy.h
+
+    MBEDTLS_ROOT_DIR="$PWD"
+    mkdir "$OUT_OF_SOURCE_DIR"
+    cd "$OUT_OF_SOURCE_DIR"
+
+    # Build once to get the generated files (which need an intact config file)
+    cmake "$MBEDTLS_ROOT_DIR"
+    make
+
+    msg "build: cmake with -DMBEDTLS_CONFIG_FILE"
+    scripts/config.py -w full_config.h full
+    echo '#error "cmake -DMBEDTLS_CONFIG_FILE is not working."' > "$MBEDTLS_ROOT_DIR/$CONFIG_H"
+    cmake -DGEN_FILES=OFF -DMBEDTLS_CONFIG_FILE=full_config.h "$MBEDTLS_ROOT_DIR"
+    make
+
+    msg "build: cmake with -DMBEDTLS_CONFIG_FILE + -DMBEDTLS_USER_CONFIG_FILE"
+    # In the user config, disable one feature (for simplicity, pick a feature
+    # that nothing else depends on).
+    echo '#undef MBEDTLS_NIST_KW_C' >user_config.h
+
+    cmake -DGEN_FILES=OFF -DMBEDTLS_CONFIG_FILE=full_config.h -DMBEDTLS_USER_CONFIG_FILE=user_config.h "$MBEDTLS_ROOT_DIR"
+    make
+    not programs/test/query_compile_time_config MBEDTLS_NIST_KW_C
+
+    rm -f user_config.h full_config.h
+
+    cd "$MBEDTLS_ROOT_DIR"
+    rm -rf "$OUT_OF_SOURCE_DIR"
+
+    # Now repeat the test for an in-tree build:
+
+    # Restore config for the in-tree test
+    mv include/mbedtls_config_in_tree_copy.h "$CONFIG_H"
+
+    # Build once to get the generated files (which need an intact config)
+    cmake .
+    make
+
+    msg "build: cmake (in-tree) with -DMBEDTLS_CONFIG_FILE"
+    scripts/config.py -w full_config.h full
+    echo '#error "cmake -DMBEDTLS_CONFIG_FILE is not working."' > "$MBEDTLS_ROOT_DIR/$CONFIG_H"
+    cmake -DGEN_FILES=OFF -DMBEDTLS_CONFIG_FILE=full_config.h .
+    make
+
+    msg "build: cmake (in-tree) with -DMBEDTLS_CONFIG_FILE + -DMBEDTLS_USER_CONFIG_FILE"
+    # In the user config, disable one feature (for simplicity, pick a feature
+    # that nothing else depends on).
+    echo '#undef MBEDTLS_NIST_KW_C' >user_config.h
+
+    cmake -DGEN_FILES=OFF -DMBEDTLS_CONFIG_FILE=full_config.h -DMBEDTLS_USER_CONFIG_FILE=user_config.h .
+    make
+    not programs/test/query_compile_time_config MBEDTLS_NIST_KW_C
+
+    rm -f user_config.h full_config.h
+}
+
+support_build_cmake_custom_config_file () {
+    support_test_cmake_out_of_source
+}
+
+component_build_cmake_config_options () {
+    MBEDTLS_ROOT_DIR="$PWD"
+    mkdir "$OUT_OF_SOURCE_DIR"
+    cd "$OUT_OF_SOURCE_DIR"
+
+    msg "configure: cmake with MBEDTLS_CONFIG_NAME"
+    cmake -DMBEDTLS_CONFIG_NAME=full "$MBEDTLS_ROOT_DIR"
+    make query_compile_time_config
+    programs/test/query_compile_time_config MBEDTLS_TEST_HOOKS
+
+    cd "$MBEDTLS_ROOT_DIR"
+    rm -rf "$OUT_OF_SOURCE_DIR"
+    mkdir "$OUT_OF_SOURCE_DIR"
+    cd "$OUT_OF_SOURCE_DIR"
+
+    msg "configure: cmake with a false-like option name"
+    cmake -DMBEDTLS_CONFIG_SET=NO "$MBEDTLS_ROOT_DIR"
+    grep '^#define NO$' generated/include/mbedtls/mbedtls_config.h
+    cmake -DMBEDTLS_CONFIG_SET= .
+    grep '^MBEDTLS_CONFIG_FILE:FILEPATH=$' CMakeCache.txt
+
+    cd "$MBEDTLS_ROOT_DIR"
+    rm -rf "$OUT_OF_SOURCE_DIR"
+    mkdir "$OUT_OF_SOURCE_DIR"
+    cd "$OUT_OF_SOURCE_DIR"
+
+    msg "configure: cmake with MBEDTLS_CONFIG_BASE_FILE only"
+    cmake -DMBEDTLS_CONFIG_BASE_FILE=configs/config-ccm-psk-tls1_2.h \
+          "$MBEDTLS_ROOT_DIR"
+    cmp "$MBEDTLS_ROOT_DIR/configs/config-ccm-psk-tls1_2.h" \
+        generated/include/mbedtls/mbedtls_config.h
+    not test -e generated/include/psa/crypto_config.h
+
+    cd "$MBEDTLS_ROOT_DIR"
+    rm -rf "$OUT_OF_SOURCE_DIR"
+    launch_dir="$MBEDTLS_ROOT_DIR/cmake-config-launch"
+    mkdir "$launch_dir"
+    cd "$launch_dir"
+
+    msg "configure: resolve a base config relative to the launch directory"
+    cmake -H"$MBEDTLS_ROOT_DIR" -B"$OUT_OF_SOURCE_DIR" \
+        -DMBEDTLS_CONFIG_BASE_FILE=../configs/config-ccm-psk-tls1_2.h \
+        -DMBEDTLS_CONFIG_SET=MBEDTLS_DEBUG_C
+    grep '^#define MBEDTLS_DEBUG_C' \
+        "$OUT_OF_SOURCE_DIR/generated/include/mbedtls/mbedtls_config.h"
+
+    cd "$MBEDTLS_ROOT_DIR"
+    rm -rf "$OUT_OF_SOURCE_DIR" "$launch_dir"
+    mkdir "$OUT_OF_SOURCE_DIR"
+    cd "$OUT_OF_SOURCE_DIR"
+
+    msg "configure: reject MBEDTLS_CONFIG_FILE with transformations"
+    not cmake -DMBEDTLS_CONFIG_FILE=configs/config-ccm-psk-tls1_2.h \
+              -DMBEDTLS_CONFIG_SET=MBEDTLS_DEBUG_C "$MBEDTLS_ROOT_DIR"
+
+    cd "$MBEDTLS_ROOT_DIR"
+    rm -rf "$OUT_OF_SOURCE_DIR"
+    mkdir "$OUT_OF_SOURCE_DIR"
+    cd "$OUT_OF_SOURCE_DIR"
+
+    msg "configure: reject a missing base configuration"
+    not cmake -DMBEDTLS_CONFIG_BASE_FILE=configs/does-not-exist.h \
+              "$MBEDTLS_ROOT_DIR"
+
+    cd "$MBEDTLS_ROOT_DIR"
+    rm -rf "$OUT_OF_SOURCE_DIR"
+    mkdir "$OUT_OF_SOURCE_DIR"
+    cd "$OUT_OF_SOURCE_DIR"
+
+    msg "build: cmake with a base config, MBEDTLS_CONFIG_SET and MBEDTLS_CONFIG_UNSET"
+    cp "$MBEDTLS_ROOT_DIR/configs/config-ccm-psk-tls1_2.h" base_config.before
+    cp "$MBEDTLS_ROOT_DIR/include/psa/crypto_config.h" crypto_config.before
+    cmake -DMBEDTLS_CONFIG_BASE_FILE=configs/config-ccm-psk-tls1_2.h \
+          '-DMBEDTLS_CONFIG_UNSET=MBEDTLS_SSL_SRV_C;PSA_WANT_ALG_CMAC;PSA_WANT_ALG_PBKDF2_AES_CMAC_PRF_128' \
+          '-DMBEDTLS_CONFIG_SET=MBEDTLS_SSL_RENEGOTIATION;MBEDTLS_DEBUG_C;MBEDTLS_ERROR_C;MBEDTLS_SSL_IN_CONTENT_LEN=12000' \
+          "$MBEDTLS_ROOT_DIR"
+    make query_compile_time_config
+
+    programs/test/query_compile_time_config MBEDTLS_SSL_PROTO_TLS1_2
+    programs/test/query_compile_time_config MBEDTLS_SSL_RENEGOTIATION
+    programs/test/query_compile_time_config MBEDTLS_DEBUG_C
+    programs/test/query_compile_time_config MBEDTLS_ERROR_C
+    not programs/test/query_compile_time_config MBEDTLS_SSL_SRV_C
+    not programs/test/query_compile_time_config PSA_WANT_ALG_CMAC
+    [ "$(programs/test/query_compile_time_config MBEDTLS_SSL_IN_CONTENT_LEN)" = \
+      "12000" ]
+    cmp base_config.before \
+        "$MBEDTLS_ROOT_DIR/configs/config-ccm-psk-tls1_2.h"
+    cmp crypto_config.before \
+        "$MBEDTLS_ROOT_DIR/include/psa/crypto_config.h"
+
+    msg "install: generated configurations are relocatable"
+    install_dir="$OUT_OF_SOURCE_DIR.install"
+    cmake -DCMAKE_INSTALL_PREFIX="$install_dir" .
+    cmake --build . --target install
+    cmp generated/include/mbedtls/mbedtls_config.h \
+        "$install_dir/include/mbedtls/mbedtls_config.h"
+    cmp generated/include/psa/crypto_config.h \
+        "$install_dir/include/psa/crypto_config.h"
+
+    # The installed targets must not refer to the build tree.
+    cd "$MBEDTLS_ROOT_DIR"
+    mv "$OUT_OF_SOURCE_DIR" "$OUT_OF_SOURCE_DIR.moved"
+    mkdir "$OUT_OF_SOURCE_DIR"
+    cd "$OUT_OF_SOURCE_DIR"
+    mkdir consumer
+    cat >consumer/CMakeLists.txt <<EOF
+cmake_minimum_required(VERSION 3.10)
+project(consumer C)
+find_package(MbedTLS REQUIRED CONFIG)
+add_executable(consumer
+    "$MBEDTLS_ROOT_DIR/programs/test/cmake_package_install/cmake_package_config.c")
+target_link_libraries(consumer PRIVATE
+    MbedTLS::mbedtls MbedTLS::mbedx509 MbedTLS::mbedcrypto)
+EOF
+    mkdir consumer-build
+    cd consumer-build
+    cmake -DCMAKE_PREFIX_PATH="$install_dir" ../consumer
+    cmake --build .
+    cd ..
+
+    cd "$MBEDTLS_ROOT_DIR"
+    rm -rf "$OUT_OF_SOURCE_DIR" "$OUT_OF_SOURCE_DIR.moved" "$install_dir"
+
+    msg "configure: reject transformations in an in-tree build"
+    not cmake -DMBEDTLS_CONFIG_SET=NO .
+    rm -rf CMakeCache.txt CMakeFiles
+}
+
+support_build_cmake_config_options () {
+    support_test_cmake_out_of_source
+}
+
+component_build_cmake_programs_no_testing () {
+    # Verify that the type of builds performed by oss-fuzz don't get accidentally broken
+    msg "build: cmake with -DENABLE_PROGRAMS=ON and -DENABLE_TESTING=OFF"
+    cmake -DENABLE_PROGRAMS=ON -DENABLE_TESTING=OFF .
+    make
+}
+
+support_build_cmake_programs_no_testing () {
+    support_test_cmake_out_of_source
+}

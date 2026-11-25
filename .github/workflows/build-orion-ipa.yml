@@ -1,0 +1,107 @@
+name: Build Orion IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build unsigned Orion Subtitles IPA
+    # build-chiaki.sh emits an arm64 simulator slice; match it with Apple Silicon.
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_16.4.app/Contents/Developer
+    steps:
+      - name: Download source and submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Show Apple build environment
+        run: |
+          set -euo pipefail
+          test -d "$DEVELOPER_DIR"
+          xcodebuild -version
+          xcodebuild -showsdks
+
+      - name: Install build tools
+        run: brew install cmake ninja xcodegen
+
+      - name: Verify source tree and dependencies
+        run: |
+          set -euo pipefail
+          test -f project.yml
+          test -f .gitmodules
+          test -f ChiakiKit/CMakeLists.txt
+          test -f ChiakiKit/include/ck_bridge.h
+          test -f scripts/build-chiaki.sh
+          test -f scripts/package-ipa.sh
+          test -f scripts/verify-ipad-ipa.sh
+          test -f vendor/chiaki-ng/CMakeLists.txt
+          test -f vendor/mbedtls/CMakeLists.txt
+          test -f vendor/opus/CMakeLists.txt
+          git submodule status --recursive
+          echo "PASS: project files and recursive submodule dependencies are available."
+
+      - name: Build ChiakiKit for device and simulator
+        run: |
+          set -euo pipefail
+          chmod +x scripts/build-chiaki.sh
+          scripts/build-chiaki.sh
+          test -d Frameworks/ChiakiKit.xcframework
+          DEVICE_LIB="$(find Frameworks/ChiakiKit.xcframework -path '*/ios-arm64/libChiakiKit.a' -type f -print -quit)"
+          SIM_LIB="$(find Frameworks/ChiakiKit.xcframework -path '*/ios-arm64-simulator/libChiakiKit.a' -type f -print -quit)"
+          test -n "$DEVICE_LIB" && test -n "$SIM_LIB"
+          lipo -info "$DEVICE_LIB"
+          lipo -info "$SIM_LIB"
+          echo "PASS: ChiakiKit.xcframework generated for the configured iOS toolchain."
+
+      - name: Run translation request management tests
+        run: |
+          set -euo pipefail
+          xcodegen generate
+          DEVICE_ID="$(xcrun simctl list devices available -j | python3 -c 'import json, sys; data=json.load(sys.stdin); print(next((d["udid"] for devices in data.get("devices", {}).values() for d in devices if "iPad" in d.get("name", "") and d.get("isAvailable", False)), ""))')"
+          if [ -z "$DEVICE_ID" ]; then
+            echo "FAIL: no available iPad Simulator was found; XCTest was not executed." >&2
+            exit 1
+          fi
+          xcodebuild -project OrionSubtitles.xcodeproj -scheme OrionSubtitlesTests \
+            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+            -resultBundlePath build/OrionSubtitlesTests.xcresult \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO test
+
+      - name: Upload XCTest result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orion-xctest-results
+          path: build/OrionSubtitlesTests.xcresult
+          if-no-files-found: warn
+
+      - name: Build unsigned iPad IPA
+        env:
+          VERSION: 0.1.0
+          BUILD_NUMBER: ${{ github.run_number }}
+          BUNDLE_ID: com.orion.subtitles
+          # Optional repository secret; never store a Gemini key here.
+          TRANSLATION_PROXY_URL: ${{ secrets.TRANSLATION_PROXY_URL }}
+        run: |
+          set -euo pipefail
+          chmod +x scripts/build-chiaki.sh scripts/package-ipa.sh scripts/verify-ipad-ipa.sh
+          scripts/package-ipa.sh
+
+      - name: Verify iPad IPA and Bundle ID
+        env:
+          EXPECTED_BUNDLE_ID: com.orion.subtitles
+        run: scripts/verify-ipad-ipa.sh build/Orion-Subtitles.ipa
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: orion-subtitles-ipa
+          path: build/Orion-Subtitles.ipa
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,413 @@
+import CoreVideo
+import Metal
+import QuartzCore
+import UIKit
+import simd
+
+/// Must match RenderUniforms in Shaders.metal
+private struct RenderUniforms {
+	var ndcScale: SIMD2<Float>
+	var uvOrigin: SIMD2<Float>
+	var uvSize: SIMD2<Float>
+	var lumaSize: SIMD2<Float>
+	var matrix: Int32
+	var transferMode: Int32
+	var bicubic: Int32
+	var fullRange: Int32
+}
+
+/// Draws decoded YCbCr frames into a CAMetalLayer as soon as they arrive.
+///
+/// SDR uses an 8-bit BT.709 layer. HDR uses a 10-bit BT.2100 PQ layer with EDR
+/// enabled, so the PS5's PQ signal goes to the display untouched and iOS
+/// handles the tone mapping for the panel.
+final class MetalRenderer {
+	let device: MTLDevice
+	private let queue: MTLCommandQueue
+	private let pipelineSDR: MTLRenderPipelineState
+	private let pipelineHDR: MTLRenderPipelineState
+	private var textureCache: CVMetalTextureCache?
+
+	private let lock = NSLock()
+	private weak var layer: CAMetalLayer?
+	private var drawableSize: CGSize = .zero
+	private var hdrOutput = false
+	private var displayMode: DisplayMode = .fit
+	private var bicubic = true
+	private var paused = false
+
+	/// Frames presented (stats)
+	private(set) var presentedFrames = 0
+	/// Called once for the first frame that reaches commandBuffer.commit().
+	var onFirstPresented: (() -> Void)?
+	private var didPresentFirstFrame = false
+	private var didLogDrawableSize = false
+	private var didLogNoDrawable = false
+	private var didLogTextureFailure = false
+	/// The screen's current refresh rate, from the display link (stats)
+	var displayHz: Double = 0
+
+	init?() {
+		guard let device = MTLCreateSystemDefaultDevice(),
+			let queue = device.makeCommandQueue(),
+			let library = device.makeDefaultLibrary()
+		else { return nil }
+		self.device = device
+		self.queue = queue
+
+		func pipeline(_ format: MTLPixelFormat) -> MTLRenderPipelineState? {
+			let desc = MTLRenderPipelineDescriptor()
+			desc.vertexFunction = library.makeFunction(name: "stream_vertex")
+			desc.fragmentFunction = library.makeFunction(name: "stream_fragment")
+			desc.colorAttachments[0].pixelFormat = format
+			return try? device.makeRenderPipelineState(descriptor: desc)
+		}
+		guard let sdr = pipeline(.bgra8Unorm), let hdr = pipeline(.bgr10a2Unorm) else { return nil }
+		pipelineSDR = sdr
+		pipelineHDR = hdr
+		CVMetalTextureCacheCreate(kCFAllocatorDefault, nil, device, nil, &textureCache)
+	}
+
+	// MARK: - Configuration (main thread)
+
+	func attach(_ layer: CAMetalLayer) {
+		layer.device = device
+		layer.framebufferOnly = true
+		layer.maximumDrawableCount = 3
+		layer.isOpaque = true
+		layer.backgroundColor = UIColor.black.cgColor
+		lock.withLock { self.layer = layer }
+		applyOutputMode(to: layer)
+	}
+
+	func configure(hdr: Bool, displayMode: DisplayMode, bicubic: Bool) {
+		let changed = lock.withLock { () -> Bool in
+			let changed = self.hdrOutput != hdr
+			self.hdrOutput = hdr
+			self.displayMode = displayMode
+			self.bicubic = bicubic
+			return changed
+		}
+		if changed, let layer = lock.withLock({ self.layer }) {
+			applyOutputMode(to: layer)
+		}
+	}
+
+	/// Starts a fresh per-connection rendering trace without changing rendering settings.
+	func resetDiagnostics() {
+		presentedFrames = 0
+		didPresentFirstFrame = false
+		didLogDrawableSize = false
+		didLogNoDrawable = false
+		didLogTextureFailure = false
+	}
+
+	func setDisplayMode(_ mode: DisplayMode) {
+		lock.withLock { displayMode = mode }
+	}
+
+	func setPaused(_ paused: Bool) {
+		lock.withLock { self.paused = paused }
+	}
+
+	func setDrawableSize(_ size: CGSize) {
+		lock.withLock {
+			drawableSize = size
+			layer?.drawableSize = size
+		}
+		if !didLogDrawableSize, size.width > 0, size.height > 0 {
+			didLogDrawableSize = true
+			log.notice("Metal drawable became ready size=\(Int(size.width))x\(Int(size.height))")
+		}
+	}
+
+	private func applyOutputMode(to layer: CAMetalLayer) {
+		let hdr = lock.withLock { hdrOutput }
+		if hdr {
+			layer.pixelFormat = .bgr10a2Unorm
+			layer.colorspace = CGColorSpace(name: CGColorSpace.itur_2100_PQ)
+			layer.wantsExtendedDynamicRangeContent = true
+			// PS5 doesn't send mastering metadata over Remote Play; typical HDR10 values
+			layer.edrMetadata = CAEDRMetadata.hdr10(minLuminance: 0.005, maxLuminance: 1000, opticalOutputScale: 100)
+		} else {
+			layer.pixelFormat = .bgra8Unorm
+			layer.colorspace = CGColorSpace(name: CGColorSpace.itur_709)
+			layer.wantsExtendedDynamicRangeContent = false
+			layer.edrMetadata = nil
+		}
+	}
+
+	// MARK: - Rendering (decoder thread)
+
+	func display(_ pixelBuffer: CVPixelBuffer) {
+		lock.lock()
+		let layer = self.layer
+		let target = drawableSize
+		let hdr = hdrOutput
+		let mode = displayMode
+		let bicubic = self.bicubic
+		let paused = self.paused
+		lock.unlock()
+
+		guard !paused, let layer, target.width > 0, target.height > 0, let cache = textureCache else {
+			if !didLogNoDrawable {
+				didLogNoDrawable = true
+				log.error("Metal display skipped: paused=\(paused), target=\(target.width)x\(target.height), layer=\(layer != nil), cache=\(self.textureCache != nil)")
+			}
+			return
+		}
+
+		let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
+		let tenBit = pixelFormat == kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange
+			|| pixelFormat == kCVPixelFormatType_420YpCbCr10BiPlanarFullRange
+		let fullRange = pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+			|| pixelFormat == kCVPixelFormatType_420YpCbCr10BiPlanarFullRange
+
+		guard let luma = makeTexture(pixelBuffer, plane: 0, format: tenBit ? .r16Unorm : .r8Unorm, cache: cache),
+				let chroma = makeTexture(pixelBuffer, plane: 1, format: tenBit ? .rg16Unorm : .rg8Unorm, cache: cache),
+				let lumaTex = CVMetalTextureGetTexture(luma),
+				let chromaTex = CVMetalTextureGetTexture(chroma)
+			else {
+				if !didLogTextureFailure {
+					didLogTextureFailure = true
+					log.error("Metal display skipped: CVMetalTexture creation failed pixelFormat=\(pixelFormat)")
+				}
+				return
+			}
+
+		// Colour metadata from the stream
+		let transfer = CVBufferCopyAttachment(pixelBuffer, kCVImageBufferTransferFunctionKey, nil) as? String
+		let matrixKey = CVBufferCopyAttachment(pixelBuffer, kCVImageBufferYCbCrMatrixKey, nil) as? String
+		let framePQ = transfer == (kCVImageBufferTransferFunction_SMPTE_ST_2084_PQ as String)
+		let bt2020 = matrixKey == (kCVImageBufferYCbCrMatrix_ITU_R_2020 as String) || framePQ
+
+		let transferMode: Int32 =
+			switch (framePQ, hdr) {
+			case (true, true), (false, false): 0
+			case (false, true): 1
+			case (true, false): 2
+			}
+
+		// Fit / zoom geometry
+		let videoW = Float(lumaTex.width)
+		let videoH = Float(lumaTex.height)
+		let tw = Float(target.width)
+		let th = Float(target.height)
+		let fitScale = min(tw / videoW, th / videoH)
+		let zoomScale = max(tw / videoW, th / videoH)
+		let scale = mode == .fit ? fitScale : zoomScale
+		let dw = videoW * scale
+		let dh = videoH * scale
+		var ndcScale = SIMD2<Float>(min(dw / tw, 1), min(dh / th, 1))
+		var uvSize = SIMD2<Float>(min(tw / dw, 1), min(th / dh, 1))
+		if mode == .fit { uvSize = .one } else { ndcScale = .one }
+		let uvOrigin = (SIMD2<Float>.one - uvSize) * 0.5
+
+		var uniforms = RenderUniforms(
+			ndcScale: ndcScale, uvOrigin: uvOrigin, uvSize: uvSize,
+			lumaSize: SIMD2(videoW, videoH),
+			matrix: bt2020 ? 1 : 0, transferMode: transferMode,
+			bicubic: (bicubic && scale > 1.01) ? 1 : 0, fullRange: fullRange ? 1 : 0)
+
+		guard let drawable = layer.nextDrawable(), let commandBuffer = queue.makeCommandBuffer() else {
+			if !didLogNoDrawable {
+				didLogNoDrawable = true
+				log.error("Metal display skipped: nextDrawable or commandBuffer returned nil")
+			}
+			return
+		}
+		// The layer's pixel format can lag a settings change by a frame
+		let pipeline = drawable.texture.pixelFormat == .bgr10a2Unorm ? pipelineHDR : pipelineSDR
+
+		let pass = MTLRenderPassDescriptor()
+		pass.colorAttachments[0].texture = drawable.texture
+		pass.colorAttachments[0].loadAction = .clear
+		pass.colorAttachments[0].clearColor = MTLClearColor(red: 0, green: 0, blue: 0, alpha: 1)
+		pass.colorAttachments[0].storeAction = .store
+
+		guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: pass) else { return }
+		encoder.setRenderPipelineState(pipeline)
+		encoder.setVertexBytes(&uniforms, length: MemoryLayout<RenderUniforms>.stride, index: 0)
+		encoder.setFragmentBytes(&uniforms, length: MemoryLayout<RenderUniforms>.stride, index: 0)
+		encoder.setFragmentTexture(lumaTex, index: 0)
+		encoder.setFragmentTexture(chromaTex, index: 1)
+		encoder.drawPrimitives(type: .triangleStrip, vertexStart: 0, vertexCount: 4)
+		encoder.endEncoding()
+
+		// Keep the CVMetalTextures alive until the GPU is done with them
+		commandBuffer.addCompletedHandler { _ in
+			_ = luma
+			_ = chroma
+		}
+		commandBuffer.present(drawable)
+		commandBuffer.commit()
+		presentedFrames += 1
+		if !didPresentFirstFrame {
+			didPresentFirstFrame = true
+			onFirstPresented?()
+		}
+	}
+
+	private func makeTexture(_ pb: CVPixelBuffer, plane: Int, format: MTLPixelFormat, cache: CVMetalTextureCache) -> CVMetalTexture? {
+		let w = CVPixelBufferGetWidthOfPlane(pb, plane)
+		let h = CVPixelBufferGetHeightOfPlane(pb, plane)
+		var texture: CVMetalTexture?
+		let status = CVMetalTextureCacheCreateTextureFromImage(kCFAllocatorDefault, cache, pb, nil, format, w, h, plane, &texture)
+		return status == kCVReturnSuccess ? texture : nil
+	}
+}
+
+/// UIView backed by a CAMetalLayer at the screen's native pixel density.
+/// Touches act as the DualSense touchpad, except the top-right corner which
+/// reveals the stream menu button.
+final class StreamMetalView: UIView {
+	override class var layerClass: AnyClass { CAMetalLayer.self }
+	var metalLayer: CAMetalLayer { layer as! CAMetalLayer }
+
+	let renderer: MetalRenderer
+
+	/// Touch down/move/up in touchpad coordinates. Screen touches use slots 10 and 11.
+	var onTouch: ((ControllerInput.TouchEvent) -> Void)?
+	/// A quick tap that didn't move: sent instead of `.up` so it can become a click.
+	var onTap: ((Int) -> Void)?
+	/// Top-right hot corner (settings)
+	var onCornerTap: (() -> Void)?
+	/// Top-left hot corner (PS button)
+	var onLeftCornerTap: (() -> Void)?
+
+	/// Hot corner size in points, at the top-right and top-left of the view
+	static let cornerSize = CGSize(width: 140, height: 90)
+	private static let tapMaxDuration: TimeInterval = 0.25
+	private static let tapMaxMovement: CGFloat = 12
+
+	private struct Tracked {
+		let slot: Int
+		let start: CGPoint
+		let time: TimeInterval
+		var moved = false
+	}
+	private var tracked: [ObjectIdentifier: Tracked] = [:]
+
+	/// Ask a ProMotion screen for 120 Hz while this view is on screen
+	var highRefresh = true {
+		didSet { if highRefresh != oldValue { updateDisplayLink() } }
+	}
+	private var displayLink: CADisplayLink?
+
+	init(renderer: MetalRenderer) {
+		self.renderer = renderer
+		super.init(frame: .zero)
+		backgroundColor = .black
+		isMultipleTouchEnabled = true
+		renderer.attach(metalLayer)
+	}
+
+	@available(*, unavailable)
+	required init?(coder: NSCoder) { fatalError() }
+
+	// MARK: Refresh rate
+
+	override func didMoveToWindow() {
+		super.didMoveToWindow()
+		updateDisplayLink()
+	}
+
+	/// Frames are still drawn as soon as they're decoded. The display link only
+	/// keeps the panel refreshing at 120 Hz, so a new frame waits at most ~8 ms
+	/// for the next refresh instead of ~17 ms. It also measures the real rate.
+	private func updateDisplayLink() {
+		displayLink?.invalidate()
+		displayLink = nil
+		renderer.displayHz = 0
+		guard let window, highRefresh else { return }
+		let maxFPS = Float(window.screen.maximumFramesPerSecond)
+		guard maxFPS > 60 else { return }
+		let link = CADisplayLink(target: self, selector: #selector(displayTick))
+		link.preferredFrameRateRange = CAFrameRateRange(minimum: min(80, maxFPS), maximum: maxFPS, preferred: maxFPS)
+		link.add(to: .main, forMode: .common)
+		displayLink = link
+		log.notice("Requesting \(Int(maxFPS)) Hz while streaming")
+	}
+
+	@objc private func displayTick(_ link: CADisplayLink) {
+		let frame = link.targetTimestamp - link.timestamp
+		if frame > 0 { renderer.displayHz = (1 / frame).rounded() }
+	}
+
+	override func layoutSubviews() {
+		super.layoutSubviews()
+		// Native scale: render at the panel's real resolution, not the UIKit point scale
+		let scale = window?.screen.nativeScale ?? UIScreen.main.nativeScale
+		contentScaleFactor = scale
+		metalLayer.contentsScale = scale
+		renderer.setDrawableSize(CGSize(width: bounds.width * scale, height: bounds.height * scale))
+	}
+
+	// MARK: Touchpad
+
+	private var cornerRect: CGRect {
+		CGRect(x: bounds.maxX - Self.cornerSize.width, y: bounds.minY, width: Self.cornerSize.width, height: Self.cornerSize.height)
+	}
+
+	private var leftCornerRect: CGRect {
+		CGRect(x: bounds.minX, y: bounds.minY, width: Self.cornerSize.width, height: Self.cornerSize.height)
+	}
+
+	private func touchpadPoint(_ p: CGPoint) -> (UInt16, UInt16) {
+		guard bounds.width > 0, bounds.height > 0 else { return (0, 0) }
+		let nx = min(max(p.x / bounds.width, 0), 1)
+		let ny = min(max(p.y / bounds.height, 0), 1)
+		return (UInt16((nx * 1919).rounded()), UInt16((ny * 1079).rounded()))
+	}
+
+	override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+		for touch in touches {
+			let p = touch.location(in: self)
+			if cornerRect.contains(p) {
+				onCornerTap?()
+				continue
+			}
+			if leftCornerRect.contains(p) {
+				onLeftCornerTap?()
+				continue
+			}
+			let used = Set(tracked.values.map(\.slot))
+			guard let slot = [10, 11].first(where: { !used.contains($0) }) else { continue }
+			tracked[ObjectIdentifier(touch)] = Tracked(slot: slot, start: p, time: touch.timestamp)
+			let (x, y) = touchpadPoint(p)
+			onTouch?(.down(slot: slot, x: x, y: y))
+		}
+	}
+
+	override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+		for touch in touches {
+			let key = ObjectIdentifier(touch)
+			guard var t = tracked[key] else { continue }
+			let p = touch.location(in: self)
+			if !t.moved, hypot(p.x - t.start.x, p.y - t.start.y) > Self.tapMaxMovement {
+				t.moved = true
+				tracked[key] = t
+			}
+			let (x, y) = touchpadPoint(p)
+			onTouch?(.move(slot: t.slot, x: x, y: y))
+		}
+	}
+
+	override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+		for touch in touches {
+			guard let t = tracked.removeValue(forKey: ObjectIdentifier(touch)) else { continue }
+			if !t.moved, touch.timestamp - t.time <= Self.tapMaxDuration {
+				onTap?(t.slot)
+			} else {
+				onTouch?(.up(slot: t.slot))
+			}
+		}
+	}
+
+	override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+		for touch in touches {
+			guard let t = tracked.removeValue(forKey: ObjectIdentifier(touch)) else { continue }
+			onTouch?(.up(slot: t.slot))
+		}
+	}
+}

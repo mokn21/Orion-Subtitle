@@ -1,0 +1,79 @@
+{
+  "name": "iPlay5",
+  "identifier": "io.github.reefbarman.iplay5.source",
+  "subtitle": "PS5 Remote Play for iPhone",
+  "description": "Local-network PS5 Remote Play built on chiaki-ng. Releases are published automatically from github.com/reefbarman/iPlay5.",
+  "iconURL": "https://raw.githubusercontent.com/reefbarman/iPlay5/main/App/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+  "website": "https://github.com/reefbarman/iPlay5",
+  "tintColor": "#2A62E8",
+  "apps": [
+    {
+      "name": "iPlay5",
+      "bundleIdentifier": "io.github.reefbarman.iplay5",
+      "developerName": "reefbarman",
+      "subtitle": "PS5 Remote Play over your local network",
+      "localizedDescription": "Requires a game controller (DualSense, Xbox, Backbone, GameSir, etc.): there is no on-screen virtual controller.\n\nStream your PS5 to your iPhone over Wi-Fi. Hardware HEVC/H.264 decoding with Metal, HDR, up to 1080p60, game controller support with phone gyro, touchscreen as the DualSense touchpad, automatic console discovery and PSN sign-in for linking. Tuned for the iPhone Duo's inner screen, and works on any iPhone running iOS 17 or later.",
+      "iconURL": "https://raw.githubusercontent.com/reefbarman/iPlay5/main/App/Assets.xcassets/AppIcon.appiconset/AppIcon.png",
+      "tintColor": "#2A62E8",
+      "category": "entertainment",
+      "screenshots": [],
+      "versions": [
+        {
+          "version": "0.4.0",
+          "date": "2026-11-20T22:34:34Z",
+          "downloadURL": "https://github.com/reefbarman/iPlay5/releases/download/v0.4.0/iPlay5.ipa",
+          "size": 1927135,
+          "minOSVersion": "17.0",
+          "localizedDescription": "See the release notes on GitHub."
+        },
+        {
+          "version": "0.3.1",
+          "date": "2026-11-20T07:45:41Z",
+          "downloadURL": "https://github.com/reefbarman/iPlay5/releases/download/v0.3.1/iPlay5.ipa",
+          "size": 1924987,
+          "minOSVersion": "17.0",
+          "localizedDescription": "See the release notes on GitHub."
+        },
+        {
+          "version": "0.3.0",
+          "date": "2026-11-20T05:22:56Z",
+          "downloadURL": "https://github.com/reefbarman/iPlay5/releases/download/v0.3.0/iPlay5.ipa",
+          "size": 1905240,
+          "minOSVersion": "17.0",
+          "localizedDescription": "See the release notes on GitHub."
+        },
+        {
+          "version": "0.2.1",
+          "date": "2026-11-20T04:12:19Z",
+          "downloadURL": "https://github.com/reefbarman/iPlay5/releases/download/v0.2.1/iPlay5.ipa",
+          "size": 1869676,
+          "minOSVersion": "17.0",
+          "localizedDescription": "See the release notes on GitHub."
+        },
+        {
+          "version": "0.2.0",
+          "date": "2026-11-20T03:56:18Z",
+          "downloadURL": "https://github.com/reefbarman/iPlay5/releases/download/v0.2.0/iPlay5.ipa",
+          "size": 1841908,
+          "minOSVersion": "17.0",
+          "localizedDescription": "See the release notes on GitHub."
+        },
+        {
+          "version": "0.1.1",
+          "date": "2026-11-20T03:00:29Z",
+          "downloadURL": "https://github.com/reefbarman/iPlay5/releases/download/v0.1.1/iPlay5.ipa",
+          "size": 1836565,
+          "minOSVersion": "17.0",
+          "localizedDescription": "See the release notes on GitHub."
+        }
+      ],
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {
+          "NSLocalNetworkUsageDescription": "iPlay5 finds and connects to your PS5 on the local network for Remote Play."
+        }
+      }
+    }
+  ],
+  "news": []
+}

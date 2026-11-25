@@ -1,0 +1,10 @@
+// Code signing for the Orion Subtitles app target.
+//
+// Don't edit this file. Copy Local.xcconfig.example to Local.xcconfig (git ignored)
+// and set your own Apple team ID and a bundle ID you own.
+
+DEVELOPMENT_TEAM =
+// Release IPAs use this, and it must match bundleIdentifier in altstore-source.json
+ORION_BUNDLE_ID = io.github.reefbarman.orion.subtitles
+
+#include? "Local.xcconfig"
