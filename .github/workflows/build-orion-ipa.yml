@@ -2,6 +2,9 @@ name: Build Orion IPA
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - orion-rebuild
 
 permissions:
   contents: read
