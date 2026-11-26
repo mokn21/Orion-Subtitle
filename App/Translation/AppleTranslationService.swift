@@ -324,6 +324,11 @@ final class AppleTranslationBridge: TextTranslationService {
                 requestContinuation.yield(request)
                 return
             } catch {
+                if Task.isCancelled || generation != sessionGeneration {
+                    ledger.requeue(request.id)
+                    requestContinuation.yield(request)
+                    return
+                }
                 _ = ledger.complete(request.id)
                 pendingRequests.removeValue(forKey: request.id)
                 recordFailure(error, phase: .translateFinished, message: "فشلت دفعة session.translations.")
