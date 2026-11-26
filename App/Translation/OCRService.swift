@@ -1,3 +1,4 @@
+import CoreImage
 import CoreVideo
 import Foundation
 import Vision

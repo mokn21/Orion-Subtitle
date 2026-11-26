@@ -509,7 +509,8 @@ struct StreamView: View {
                                     ))
                                     .multilineTextAlignment(.center)
                                     .environment(\.layoutDirection, .rightToLeft)
-                                    .lineLimit(3)
+                                    .lineLimit(2)
+                                    .fixedSize(horizontal: true, vertical: true)
                                     .minimumScaleFactor(0.35)
                                     .padding(2)
                                     .foregroundStyle(translationColor(session.settings.translationTextColor))
@@ -517,7 +518,10 @@ struct StreamView: View {
                             // Keep the cover aligned to the exact OCR box. A minimum
                             // width/height would hide neighboring game elements and
                             // move the translated text away from the source location.
-                            .frame(width: max(1, frame.width), height: max(1, frame.height))
+                            // Keep the same center as the source text, but let a
+                            // longer Arabic translation expand instead of shrinking
+                            // into the narrow width of a short English word.
+                            .frame(minWidth: max(1, frame.width), minHeight: max(1, frame.height))
                             .clipShape(RoundedRectangle(cornerRadius: 2))
                             .position(x: frame.midX, y: frame.midY)
 					}
