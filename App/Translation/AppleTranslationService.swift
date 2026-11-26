@@ -200,6 +200,7 @@ final class AppleTranslationBridge: TextTranslationService {
         record(.sessionReceived, message: "استلمت الجلسة؛ SDK الحالية لا توفر session.isReady أو canRequestDownloads على TranslationSession.", succeeded: true)
         record(.availabilityStarted, message: "جارٍ فحص توفر English إلى Arabic.", succeeded: nil)
         let availability = await LanguageAvailability().status(from: source, to: target)
+        guard generation == sessionGeneration, !Task.isCancelled else { return }
         record(.availabilityFinished, message: "حالة توفر English إلى Arabic: \(String(describing: availability)).", succeeded: availability == .installed || availability == .supported)
         guard availability == .installed || availability == .supported else {
             let error = TranslationError.unavailable("لا تتوفر ترجمة English إلى العربية على هذا الجهاز. لم تُعرض ترجمة وهمية.")
@@ -219,9 +220,11 @@ final class AppleTranslationBridge: TextTranslationService {
                 statusMessage = "جارٍ طلب تنزيل نماذج English إلى العربية…"
                 record(.preparationStarted, message: "بدأ prepareTranslation لتنزيل نموذج اللغة.", succeeded: nil)
                 try await session.prepareTranslation()
+                guard generation == sessionGeneration, !Task.isCancelled else { return }
                 record(.preparationFinished, message: "انتهى prepareTranslation بنجاح؛ لا توفر SDK قيمة session.isReady.", succeeded: true)
                 statusMessage = "تم تنزيل نماذج English إلى العربية وأصبحت جاهزة."
             } catch {
+                guard generation == sessionGeneration, !Task.isCancelled else { return }
                 recordFailure(error, phase: .preparationFinished, message: "فشل prepareTranslation.")
                 let failure = TranslationError.failed("تعذر تنزيل نماذج Apple Translation. وافق على التنزيل وتحقق من اتصال الإنترنت ثم حاول مرة أخرى.")
                 availabilityFailure = failure
