@@ -150,27 +150,34 @@ struct TranslationDiagnosticsView: View {
                     throw TranslationError.unavailable("اختبار Apple Translation يتطلب iPadOS 18 أو أحدث وجلسة ترجمة مفعلة.")
                 }
                 var output: [SampleResult] = []
-                for sample in samples {
-                    let startedSample = ContinuousClock.now
-                    do {
-                        let translated = try await bridge.translate(sample)
-                        let finishedSample = ContinuousClock.now
-                        output.append(SampleResult(
+                let batchStarted = ContinuousClock.now
+                do {
+                    let translations = try await bridge.translateBatch(samples)
+                    let batchFinished = ContinuousClock.now
+                    let elapsed = Self.elapsedMilliseconds(batchStarted, batchFinished)
+                    guard translations.count == samples.count else {
+                        throw TranslationError.failed("عدد نتائج اختبار الدفعة لا يطابق عدد الجمل.")
+                    }
+                    output = zip(samples, translations).map { sample, translated in
+                        SampleResult(
                             source: sample,
                             target: translated,
                             error: nil,
-                            elapsedMilliseconds: Self.elapsedMilliseconds(startedSample, finishedSample),
+                            elapsedMilliseconds: elapsed,
                             phase: "translateFinished"
-                        ))
-                    } catch {
-                        let finishedSample = ContinuousClock.now
-                        output.append(SampleResult(
+                        )
+                    }
+                } catch {
+                    let batchFinished = ContinuousClock.now
+                    let elapsed = Self.elapsedMilliseconds(batchStarted, batchFinished)
+                    output = samples.map { sample in
+                        SampleResult(
                             source: sample,
                             target: nil,
                             error: error.localizedDescription,
-                            elapsedMilliseconds: Self.elapsedMilliseconds(startedSample, finishedSample),
+                            elapsedMilliseconds: elapsed,
                             phase: bridge.diagnosticEvents.last?.phase.rawValue ?? "failed"
-                        ))
+                        )
                     }
                 }
                 let finished = ContinuousClock.now
