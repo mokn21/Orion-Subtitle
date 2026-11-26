@@ -51,7 +51,7 @@ final class StreamSession {
 
 	@ObservationIgnored let renderer: MetalRenderer?
 	/// OCR observes the decoded Remote Play frame; it never captures another app's screen.
-	let translationCoordinator = TranslationCoordinator()
+	let translationCoordinator: TranslationCoordinator
 	@ObservationIgnored let input = ControllerInput()
 	@ObservationIgnored private let audio = AudioOutput()
 	@ObservationIgnored private var decoder: VideoDecoder?
@@ -78,10 +78,11 @@ final class StreamSession {
 	@ObservationIgnored private var loggedDecodeFailure = false
 	@ObservationIgnored private var videoCallbackCount = 0
 
-	init(console: Console, settings: StreamSettings) {
+	init(console: Console, settings: StreamSettings, historyStore: TranslationHistoryStore) {
 		self.console = console
 		self.settings = settings
 		self.renderer = MetalRenderer()
+		self.translationCoordinator = TranslationCoordinator(historyStore: historyStore, historyContext: console.name)
 		self.translationCoordinator.region = settings.translationRegion
 		self.translationCoordinator.sourceLanguage = settings.translationSourceLanguage
 		self.translationCoordinator.minimumFrameInterval = .milliseconds(settings.translationIntervalMs)
