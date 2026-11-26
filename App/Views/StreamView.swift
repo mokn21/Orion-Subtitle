@@ -417,14 +417,11 @@ struct StreamView: View {
 
 	private func quickToolbar(for session: StreamSession) -> some View {
 		HStack(spacing: 8) {
-			quickTool("عرض", icon: blackTranslationMode ? "rectangle.fill" : "play.tv") {
-				blackTranslationMode.toggle()
-				session.setTranslationBlackMode(blackTranslationMode)
-			}
-			quickTool("كتم", icon: blackTranslationMode ? "speaker.slash.fill" : "speaker.wave.2.fill") {
-				blackTranslationMode.toggle()
-				session.setTranslationBlackMode(blackTranslationMode)
-			}
+            quickTool(blackTranslationMode ? "عرض اللعبة" : "شاشة سوداء",
+                icon: blackTranslationMode ? "play.tv" : "rectangle.fill") {
+                blackTranslationMode.toggle()
+                session.setTranslationBlackMode(blackTranslationMode)
+            }
 			quickTool("OCR", icon: session.translationCoordinator.state == .running ? "text.viewfinder" : "text.viewfinder.slash") {
 				if session.translationCoordinator.state == .running {
 					session.translationCoordinator.pause()
@@ -570,7 +567,7 @@ struct StreamView: View {
 
 				private func blackModeToolbar(for session: StreamSession) -> some View {
 					HStack(spacing: 8) {
-						quickTool("العرض", icon: "play.tv") {
+						quickTool("عرض اللعبة", icon: "play.tv") {
 							blackTranslationMode = false
 							session.setTranslationBlackMode(false)
 						}
