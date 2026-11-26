@@ -174,7 +174,7 @@ final class TranslationCoordinator {
 
             self.submittedTranslationCount += uncachedObservations.count
             do {
-                let translatedTexts = try await translator.translateBatch(uncachedObservations.map(\\.text))
+                let translatedTexts = try await translator.translateBatch(uncachedObservations.map(\.text))
                 guard !Task.isCancelled else { return }
                 guard translatedTexts.count == uncachedObservations.count else {
                     throw TranslationError.failed("عدد نتائج الترجمة لا يطابق عدد النصوص المرسلة.")
@@ -195,7 +195,7 @@ final class TranslationCoordinator {
                 guard !Task.isCancelled else { return }
                 self.lastObservationFingerprint = ""
                 self.lastError = error.localizedDescription
-                self.translationStatusMessage = "تعذرت ترجمة الدفعة: \\(error.localizedDescription)"
+                self.translationStatusMessage = "تعذرت ترجمة الدفعة: \(error.localizedDescription)"
             }
 	        }
 	        translationTasks[generation] = task
