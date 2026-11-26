@@ -36,7 +36,9 @@ struct TranslationRequestLedger {
         completed.insert(id)
         completedOrder.append(id)
         if completedOrder.count > maximumRememberedCompletions {
-            let expired = completedOrder.removeFirst(completedOrder.count - maximumRememberedCompletions)
+            let excessCount = completedOrder.count - maximumRememberedCompletions
+            let expired = Array(completedOrder.prefix(excessCount))
+            completedOrder.removeFirst(excessCount)
             for expiredID in expired {
                 completed.remove(expiredID)
             }
