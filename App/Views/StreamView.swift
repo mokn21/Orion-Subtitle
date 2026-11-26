@@ -522,6 +522,7 @@ struct StreamView: View {
                             .position(x: frame.midX, y: frame.midY)
 					}
 					}
+				.clipped()
 				.allowsHitTesting(false)
 				}
 			}
