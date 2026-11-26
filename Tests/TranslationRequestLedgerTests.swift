@@ -149,6 +149,22 @@ final class TranslationRequestLedgerTests: XCTestCase {
         XCTAssertEqual(secondary.state, .stopped)
     }
 
+
+    func testVideoCoordinateMapperUsesAspectFillForZoomMode() {
+        let viewSize = CGSize(width: 1024, height: 768)
+        let fullFrame = CGRect(x: 0, y: 0, width: 1, height: 1)
+
+        let fit = VideoCoordinateMapper.displayRect(for: fullFrame, in: viewSize, mode: .fit)
+        XCTAssertEqual(fit.width, 1024, accuracy: 0.01)
+        XCTAssertEqual(fit.height, 576, accuracy: 0.01)
+        XCTAssertEqual(fit.minY, 96, accuracy: 0.01)
+
+        let zoom = VideoCoordinateMapper.displayRect(for: fullFrame, in: viewSize, mode: .zoom)
+        XCTAssertGreaterThan(zoom.width, viewSize.width)
+        XCTAssertEqual(zoom.height, viewSize.height, accuracy: 0.01)
+        XCTAssertLessThan(zoom.minX, 0)
+    }
+
 	func testVideoAccessUnitSplitsThreeAndFourByteAnnexBStartCodes() {
 		let bytes: [UInt8] = [
 			0, 0, 0, 1, 0x67, 0x64, 0,
