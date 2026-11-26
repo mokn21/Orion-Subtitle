@@ -2,7 +2,6 @@ import CoreVideo
 import Foundation
 import Observation
 
-@MainActor
 @Observable
 final class TranslationCoordinator {
     private(set) var state: TranslationState = .stopped
@@ -177,7 +176,7 @@ final class TranslationCoordinator {
     private func startOCRWorker(pixelBuffer: CVPixelBuffer, capturedAt: ContinuousClock.Instant) {
         let generation = ocrGeneration
         let ocr = self.ocr
-        ocrTask = Task { [weak self] in
+        ocrTask = Task { @MainActor [weak self] in
             guard let self else { return }
             var frame = (pixelBuffer: pixelBuffer, capturedAt: capturedAt)
 
