@@ -213,3 +213,87 @@ final class SettingsStore {
 		}
 	}
 }
+
+// MARK: - Persistent translation history
+
+struct SavedTranslationEntry: Codable, Identifiable, Equatable {
+    let id: UUID
+    let sourceText: String
+    let translatedText: String
+    let context: String?
+    let x: Double
+    let y: Double
+    let width: Double
+    let height: Double
+    let confidence: Float
+    let createdAt: Date
+}
+
+@Observable
+final class TranslationHistoryStore {
+    private(set) var entries: [SavedTranslationEntry] = []
+
+    @ObservationIgnored private let url: URL
+    private let maximumEntries = 1000
+
+    init(fileURL: URL? = nil) {
+        if let fileURL {
+            url = fileURL
+        } else {
+            let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            url = directory.appendingPathComponent("translation-history.json")
+        }
+
+        if let data = try? Data(contentsOf: url),
+           let decoded = try? JSONDecoder().decode([SavedTranslationEntry].self, from: data) {
+            entries = Array(decoded.prefix(maximumEntries))
+        }
+    }
+
+    func append(
+        sourceText: String,
+        translatedText: String,
+        context: String?,
+        boundingBox: CGRect,
+        confidence: Float,
+        createdAt: Date = Date()
+    ) {
+        let source = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let translated = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !source.isEmpty, !translated.isEmpty else { return }
+
+        let entry = SavedTranslationEntry(
+            id: UUID(),
+            sourceText: source,
+            translatedText: translated,
+            context: context,
+            x: boundingBox.minX,
+            y: boundingBox.minY,
+            width: boundingBox.width,
+            height: boundingBox.height,
+            confidence: confidence,
+            createdAt: createdAt
+        )
+        entries.insert(entry, at: 0)
+        if entries.count > maximumEntries {
+            entries.removeLast(entries.count - maximumEntries)
+        }
+        save()
+    }
+
+    func clear() {
+        entries.removeAll()
+        save()
+    }
+
+    private func save() {
+        do {
+            let data = try JSONEncoder().encode(entries)
+            try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        } catch {
+            log.error("Saving translation history failed: \\(error.localizedDescription, privacy: .public)")
+        }
+    }
+}
+
