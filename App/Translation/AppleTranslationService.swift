@@ -143,7 +143,7 @@ final class AppleTranslationBridge: TextTranslationService {
                 let request = PendingRequest(id: id, texts: texts, continuation: continuation)
                 pendingRequests[id] = request
                 ledger.enqueue(id)
-                record(.requestEnqueued, message: "وصلت دفعة ترجمة من \\(texts.count) نصوص إلى AsyncStream.", succeeded: true)
+                record(.requestEnqueued, message: "وصلت دفعة ترجمة من \(texts.count) نصوص إلى AsyncStream.", succeeded: true)
                 requestContinuation.yield(request)
             }
         }, onCancel: {
@@ -287,7 +287,7 @@ final class AppleTranslationBridge: TextTranslationService {
                 // A duplicate stream item or an already completed request.
                 continue
             }
-            record(.requestConsumed, message: "استهلك العامل دفعة ترجمة من \\(request.texts.count) نصوص.", succeeded: true, details: "generation=\\(generation)")
+            record(.requestConsumed, message: "استهلك العامل دفعة ترجمة من \(request.texts.count) نصوص.", succeeded: true, details: "generation=\(generation)")
 
             do {
                 let requests = request.texts.enumerated().map { index, text in
@@ -308,7 +308,7 @@ final class AppleTranslationBridge: TextTranslationService {
                 if ledger.complete(request.id) {
                     pendingRequests.removeValue(forKey: request.id)
                     request.continuation.resume(returning: translatedTexts)
-                    record(.translateFinished, message: "اكتملت دفعة Apple Translation وعدد نتائجها \\(translatedTexts.count).", succeeded: true)
+                    record(.translateFinished, message: "اكتملت دفعة Apple Translation وعدد نتائجها \(translatedTexts.count).", succeeded: true)
                 }
             } catch is CancellationError {
                 ledger.requeue(request.id)
