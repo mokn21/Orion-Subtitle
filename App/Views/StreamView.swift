@@ -33,6 +33,7 @@ struct StreamView: View {
 	@State private var showPSButton = false
 	@State private var showTranslationDiagnostics = false
 	@State private var showRegionEditor = false
+    @State private var showSecondRegionEditor = false
 	@State private var showQuickBar = false
 	@State private var quickBarHideTask: Task<Void, Never>?
 	@State private var hidePSButton: Task<Void, Never>?
@@ -125,6 +126,20 @@ struct StreamView: View {
 						)
 					}
 				}
+        .sheet(isPresented: $showSecondRegionEditor) {
+            if let session {
+                CaptureRegionEditorView(
+                    pixelBuffer: session.latestFrame,
+                    region: Binding(
+                        get: { settingsStore.settings.translationSecondRegion },
+                        set: {
+                            settingsStore.settings.translationSecondRegion = $0
+                            session.apply(settingsStore.settings)
+                        }
+                    )
+                )
+            }
+        }
 		.modifier(AppleTranslationTaskModifier(bridge: translationBridge))
 		}
 
@@ -419,6 +434,11 @@ struct StreamView: View {
 			quickTool("منطقة", icon: "crop") {
 				showRegionEditor = true
 			}
+            if session.translationCoordinator.secondaryEnabled {
+                quickTool("منطقة ٢", icon: "crop.rotate") {
+                    showSecondRegionEditor = true
+                }
+            }
 				quickTool("اختبار", icon: "checkmark.seal") {
 					showTranslationDiagnostics = true
 				}
@@ -476,7 +496,11 @@ struct StreamView: View {
 		private func translationOverlay(for session: StreamSession) -> some View {
 				if session.translationCoordinator.state == .running || session.translationCoordinator.state == .paused {
 					GeometryReader { geo in
-						ForEach(session.translationCoordinator.visibleEntries) { entry in
+                        let entries = session.translationCoordinator.visibleEntries +
+                            (session.translationCoordinator.secondaryEnabled
+                                ? (session.translationCoordinator.secondaryCoordinator?.visibleEntries ?? [])
+                                : [])
+						ForEach(entries) { entry in
 							let frame = spatialFrame(for: entry.boundingBox, in: geo.size)
 							VStack(spacing: 4) {
 								Text(entry.translatedText)
@@ -505,14 +529,19 @@ struct StreamView: View {
 			}
 
 			private func blackTranslationScreen(for session: StreamSession) -> some View {
+            let allEntries = session.translationCoordinator.recentEntries +
+                (session.translationCoordinator.secondaryEnabled
+                    ? (session.translationCoordinator.secondaryCoordinator?.recentEntries ?? [])
+                    : [])
+            let sortedEntries = allEntries.sorted { $0.createdAt > $1.createdAt }
 			VStack(spacing: 18) {
-					if let entry = session.translationCoordinator.latestEntry {
+					if let entry = sortedEntries.first {
 						Text(entry.translatedText)
 							.font(.system(size: session.settings.translationFontSize + 10, weight: .bold))
 							.multilineTextAlignment(.center)
 							.environment(\.layoutDirection, .rightToLeft)
 							.foregroundStyle(translationColor(session.settings.translationTextColor))
-							ForEach(Array(session.translationCoordinator.recentEntries.dropFirst()), id: \.id) { previous in
+							ForEach(Array(sortedEntries.dropFirst()), id: \.id) { previous in
 							Text(previous.translatedText)
 								.font(.system(size: max(14, session.settings.translationFontSize * 0.68), weight: .medium))
 								.foregroundStyle(translationColor(session.settings.translationTextColor).opacity(0.68))
@@ -546,6 +575,9 @@ struct StreamView: View {
 							}
 						}
 					quickTool("المنطقة", icon: "crop") { showRegionEditor = true }
+                    if session.translationCoordinator.secondaryEnabled {
+                        quickTool("المنطقة ٢", icon: "crop.rotate") { showSecondRegionEditor = true }
+                    }
 					quickTool("اختبار", icon: "checkmark.seal") { showTranslationDiagnostics = true }
 					quickTool("إيقاف العرض", icon: "stop.fill") {
 						stop()
