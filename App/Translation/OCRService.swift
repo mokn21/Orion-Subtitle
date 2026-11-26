@@ -23,10 +23,8 @@ final class OCRService {
         let fullImage = CIImage(cvPixelBuffer: pixelBuffer)
         let extent = fullImage.extent
         guard extent.width > 0, extent.height > 0 else { return nil }
-        // The capture preview is horizontally mirrored relative to the
-        // decoded pixel buffer. Convert the user's visible left/right selection
-        // into the corresponding source-image crop.
-        let sourceRegionX = 1.0 - selectedRegion.x - selectedRegion.width
+        // CaptureRegion, CIImage and Vision use the same unmirrored frame space.
+        let sourceRegionX = selectedRegion.x
         let cropRect = CGRect(
             x: extent.minX + CGFloat(sourceRegionX) * extent.width,
             y: extent.minY + CGFloat(selectedRegion.y) * extent.height,
@@ -66,13 +64,11 @@ final class OCRService {
                   local.minX >= 0, local.minY >= 0,
                   local.maxX <= 1.001, local.maxY <= 1.001,
                   local.width <= 0.95, local.height <= 0.30 else { return nil }
-            // Restore the mirrored crop's detections to the visible preview
-            // coordinate system so the replacement overlay lands on the text.
-            let fullFrameBox = CGRect(
-                x: 1.0 - CGFloat(selectedRegion.x) - local.maxX * CGFloat(selectedRegion.width),
-                y: CGFloat(selectedRegion.y) + local.minY * CGFloat(selectedRegion.height),
-                width: local.width * CGFloat(selectedRegion.width),
-                height: local.height * CGFloat(selectedRegion.height)
+            // Crop coordinates are converted back to the original frame.
+            // The overlay must never use crop-relative or mirrored coordinates.
+            let fullFrameBox = OCRCoordinateMapper.fullFrameRect(
+                for: local,
+                in: selectedRegion
             )
             return OCRTextObservation(text: text, boundingBox: fullFrameBox, confidence: candidate.confidence)
         }

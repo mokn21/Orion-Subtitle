@@ -211,28 +211,23 @@ final class TranslationCoordinator {
 				skippedFrames += 1
 				return
 			}
-		// Do not queue a second Core ML/Apple translation while the previous one
-		// is still running. Keeping the observation fingerprint unchanged here lets the next
-		// OCR frame retry the latest text without building an unbounded backlog.
-		guard translationTasks.isEmpty else {
-			skippedFrames += 1
-			return
-		}
-            let fingerprint = observations.map { observation in
-                let box = observation.boundingBox
-                return [
-                    Self.normalize(observation.text),
-                    String(format: "%.4f", box.minX),
-                    String(format: "%.4f", box.minY),
-                    String(format: "%.4f", box.width),
-                    String(format: "%.4f", box.height)
-                ].joined(separator: "|")
-            }.joined(separator: "\u{1F}")
-            guard fingerprint != lastObservationFingerprint else {
-                skippedFrames += 1
-                return
-            }
-            lastObservationFingerprint = fingerprint
+        // Keep translated overlays attached to the latest OCR box. Small
+        // per-frame Vision jitter must not invalidate a stable translation.
+        refreshVisibleEntryGeometry(with: observations)
+
+        // Do not queue a second translation while the previous one is running.
+        guard translationTasks.isEmpty else {
+            skippedFrames += 1
+            return
+        }
+
+        // Text identity is stable; bounding boxes are refreshed independently.
+        let fingerprint = observations.map { Self.normalize($0.text) }.joined(separator: "\u{1F}")
+        guard fingerprint != lastObservationFingerprint else {
+            skippedFrames += 1
+            return
+        }
+        lastObservationFingerprint = fingerprint
 			lastDetectedText = result.text
 			visibleEntries = []
 			processedFrames += 1
@@ -299,7 +294,39 @@ final class TranslationCoordinator {
 	        translationTasks[generation] = task
 	    }
 
-	    private func publish(_ translated: String, observation: OCRTextObservation, result: OCRResult, generation: UInt64) {
+	
+    private func refreshVisibleEntryGeometry(with observations: [OCRTextObservation]) {
+        guard !visibleEntries.isEmpty else { return }
+        var usedObservationIndices = Set<Int>()
+
+        visibleEntries = visibleEntries.map { currentEntry in
+            let key = Self.normalize(currentEntry.sourceText)
+            let candidates = observations.indices.filter {
+                !usedObservationIndices.contains($0) &&
+                Self.normalize(observations[$0].text) == key
+            }
+            guard let bestIndex = candidates.min(by: { lhs, rhs in
+                let old = currentEntry.boundingBox
+                let left = observations[lhs].boundingBox
+                let right = observations[rhs].boundingBox
+                let leftDX = left.midX - old.midX
+                let leftDY = left.midY - old.midY
+                let rightDX = right.midX - old.midX
+                let rightDY = right.midY - old.midY
+                return leftDX * leftDX + leftDY * leftDY < rightDX * rightDX + rightDY * rightDY
+            }) else {
+                return currentEntry
+            }
+
+            usedObservationIndices.insert(bestIndex)
+            var updated = currentEntry
+            updated.boundingBox = observations[bestIndex].boundingBox
+            updated.confidence = observations[bestIndex].confidence
+            return updated
+        }
+    }
+
+    private func publish(_ translated: String, observation: OCRTextObservation, result: OCRResult, generation: UInt64) {
         // A late translation may finish, but it must never replace a newer one.
         guard generation == nextGeneration, (state == .running || state == .paused) else { return }
         let finished = ContinuousClock.now

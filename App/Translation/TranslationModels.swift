@@ -101,13 +101,28 @@ enum VideoCoordinateMapper {
     }
 }
 
+
+/// Converts a crop-local Vision rectangle to the original full-frame normalized
+/// coordinate space. Both spaces use a bottom-left origin; no mirroring occurs.
+enum OCRCoordinateMapper {
+    static func fullFrameRect(for localVisionRect: CGRect, in captureRegion: CaptureRegion) -> CGRect {
+        let region = captureRegion.clamped
+        return CGRect(
+            x: CGFloat(region.x) + localVisionRect.minX * CGFloat(region.width),
+            y: CGFloat(region.y) + localVisionRect.minY * CGFloat(region.height),
+            width: localVisionRect.width * CGFloat(region.width),
+            height: localVisionRect.height * CGFloat(region.height)
+        )
+    }
+}
+
 struct TranslationEntry: Identifiable, Equatable {
     let id = UUID()
     let sourceText: String
     let translatedText: String
     /// The original text position in Vision normalized coordinates.
-    let boundingBox: CGRect
-    let confidence: Float
+    var boundingBox: CGRect
+    var confidence: Float
     let createdAt = Date()
     let metrics: LatencyMetrics
 }
