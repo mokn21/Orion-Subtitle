@@ -179,6 +179,13 @@ final class AppleTranslationBridge: TextTranslationService {
         // configuration changes; keeping the session in a detached child task
         // can therefore lead to a fatal error on the next translate call.
         await process(session: session, generation: generation)
+        // Never leave an invalidated session available to diagnostic callers.
+        // A newer translationTask may already have installed its own session.
+        guard generation == sessionGeneration else { return }
+        activeSession = nil
+        activeGeneration = nil
+        sessionReady = false
+        statusMessage = "انتهت جلسة Apple Translation؛ بانتظار جلسة جديدة."
     }
 
     func recordModifierMounted() {
