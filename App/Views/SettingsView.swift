@@ -61,8 +61,8 @@ struct StreamSettingsForm: View {
         Section {
             Toggle("تفعيل منطقة OCR ثانية مستقلة", isOn: $settings.translationSecondRegionEnabled)
             if settings.translationSecondRegionEnabled {
-                RegionSlider(title: "موضع المنطقة الثانية أفقيًا", value: $settings.translationSecondRegion.x, range: 0...0.9)
-                RegionSlider(title: "موضع المنطقة الثانية عموديًا", value: $settings.translationSecondRegion.y, range: 0...0.9)
+                RegionSlider(title: "موضع المنطقة الثانية أفقيًا", value: $settings.translationSecondRegion.x, range: 0...max(0, 1 - settings.translationSecondRegion.width))
+                RegionSlider(title: "موضع المنطقة الثانية عموديًا", value: $settings.translationSecondRegion.y, range: 0...max(0, 1 - settings.translationSecondRegion.height))
                 RegionSlider(title: "عرض المنطقة الثانية", value: $settings.translationSecondRegion.width, range: 0.1...1)
                 RegionSlider(title: "ارتفاع المنطقة الثانية", value: $settings.translationSecondRegion.height, range: 0.1...1)
             }
@@ -168,8 +168,8 @@ private struct TranslationSettingsForm: View {
 					ForEach(TranslationTheme.allCases) { Text($0.label).tag($0) }
 				}
 				Text("منطقة الالتقاط — اسحب القيم لتحديد المستطيل داخل إطار Remote Play")
-			RegionSlider(title: "أفقيًا", value: $settings.translationRegion.x, range: 0...0.9)
-			RegionSlider(title: "عموديًا", value: $settings.translationRegion.y, range: 0...0.9)
+			RegionSlider(title: "أفقيًا", value: $settings.translationRegion.x, range: 0...max(0, 1 - settings.translationRegion.width))
+			RegionSlider(title: "عموديًا", value: $settings.translationRegion.y, range: 0...max(0, 1 - settings.translationRegion.height))
 			RegionSlider(title: "العرض", value: $settings.translationRegion.width, range: 0.1...1)
 			RegionSlider(title: "الارتفاع", value: $settings.translationRegion.height, range: 0.1...1)
 
