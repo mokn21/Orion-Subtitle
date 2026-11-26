@@ -62,6 +62,7 @@ final class TranslationCoordinator {
         nextGeneration &+= 1
         translationTasks.values.forEach { $0.cancel() }
         translationTasks.removeAll()
+        lastObservationFingerprint = ""
 		lastError = nil
 		ocrStatusMessage = "OCR يعمل وينتظر إطارًا نصيًا."
 		translationStatusMessage = "بانتظار نص إنجليزي من OCR."
