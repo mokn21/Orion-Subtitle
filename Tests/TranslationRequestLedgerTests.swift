@@ -130,7 +130,7 @@ final class TranslationRequestLedgerTests: XCTestCase {
 
     func testSecondOCRCoordinatorHasIndependentRegionAndLifecycle() throws {
         let primary = TranslationCoordinator(
-            translator: UnavailableTranslationService(reason: "test")
+            translator: ExternalAITranslationService()
         )
         primary.configureSecondary()
         let secondary = try XCTUnwrap(primary.secondaryCoordinator)
