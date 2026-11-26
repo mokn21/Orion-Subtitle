@@ -502,20 +502,24 @@ struct StreamView: View {
                                 ? (session.translationCoordinator.secondaryCoordinator?.visibleEntries ?? [])
                                 : [])
 						ForEach(entries) { entry in
-							let frame = spatialFrame(for: entry.boundingBox, in: geo.size)
-							VStack(spacing: 4) {
-								Text(entry.translatedText)
-									.font(.system(size: session.settings.translationFontSize, weight: .semibold))
-									.multilineTextAlignment(.center)
-									.environment(\.layoutDirection, .rightToLeft)
-							}
-							.foregroundStyle(translationColor(session.settings.translationTextColor))
-							.padding(.horizontal, 18)
-							.padding(.vertical, 10)
-							// Opaque black masks the original English pixels beneath the Arabic.
-							.background(Color.black, in: RoundedRectangle(cornerRadius: 8))
-							.frame(width: max(90, min(frame.width, geo.size.width - 24)))
-							.position(x: frame.midX, y: frame.midY)
+							let frame = spatialFrame(for: entry.boundingBox, in: geo.size, mode: session.settings.displayMode)
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 8).fill(Color.black)
+                                Text(entry.translatedText)
+                                    .font(.system(size: session.settings.translationFontSize, weight: .semibold))
+                                    .multilineTextAlignment(.center)
+                                    .environment(\.layoutDirection, .rightToLeft)
+                                    .lineLimit(3)
+                                    .minimumScaleFactor(0.55)
+                                    .padding(5)
+                                    .foregroundStyle(translationColor(session.settings.translationTextColor))
+                            }
+                            .frame(
+                                width: max(90, min(frame.width, geo.size.width)),
+                                height: max(52, frame.height)
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            .position(x: frame.midX, y: frame.midY)
 					}
 					}
 				.allowsHitTesting(false)
@@ -524,10 +528,9 @@ struct StreamView: View {
 
 			/// Converts Vision's bottom-left normalized coordinates into the displayed
 			/// 16:9 video rectangle, including iPad letterboxing.
-			private func spatialFrame(for visionRect: CGRect, in size: CGSize) -> CGRect {
-				let rect = VideoCoordinateMapper.displayRect(for: visionRect, in: size)
-				return CGRect(x: rect.minX, y: rect.minY, width: max(90, rect.width), height: max(52, rect.height))
-			}
+			private func spatialFrame(for visionRect: CGRect, in size: CGSize, mode: DisplayMode) -> CGRect {
+                VideoCoordinateMapper.displayRect(for: visionRect, in: size, mode: mode)
+            }
 
 			private func blackTranslationScreen(for session: StreamSession) -> some View {
             let allEntries = session.translationCoordinator.recentEntries +
