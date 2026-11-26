@@ -228,22 +228,19 @@ final class TranslationCoordinator {
 
             self.submittedTranslationCount += uncachedObservations.count
             do {
-                let translatedTexts = try await translator.translateBatch(uncachedObservations.map(\.text))
-                guard !Task.isCancelled else { return }
-                guard translatedTexts.count == uncachedObservations.count else {
-                    throw TranslationError.failed("عدد نتائج الترجمة لا يطابق عدد النصوص المرسلة.")
-                }
-
-                for (observation, translated) in zip(uncachedObservations, translatedTexts) {
-                    guard !Task.isCancelled else { return }
+                _ = try await translator.translateBatch(uncachedObservations.map(\.text)) { [weak self] index, translated in
+                    guard let self,
+                          !Task.isCancelled,
+                          generation == self.nextGeneration,
+                          uncachedObservations.indices.contains(index) else { return }
+                    let observation = uncachedObservations[index]
                     let cleaned = translated.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !cleaned.isEmpty else {
-                        throw TranslationError.failed("أعاد محرك الترجمة نتيجة فارغة لأحد النصوص.")
-                    }
+                    guard !cleaned.isEmpty else { return }
                     self.storeCachedTranslation(cleaned, for: Self.normalize(observation.text))
                     self.returnedTranslationCount += 1
                     self.publish(cleaned, observation: observation, result: result, generation: generation)
                 }
+                guard !Task.isCancelled else { return }
                 self.translationStatusMessage = "اكتملت ترجمة الدفعة."
             } catch {
                 guard !Task.isCancelled else { return }

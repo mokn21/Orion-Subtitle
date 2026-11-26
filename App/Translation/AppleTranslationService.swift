@@ -56,6 +56,7 @@ final class AppleTranslationBridge: TextTranslationService {
     struct PendingRequest {
         let id: UUID
         let texts: [String]
+        let onPartialResult: @MainActor @Sendable (Int, String) -> Void
         let continuation: CheckedContinuation<[String], Error>
     }
 
@@ -106,6 +107,13 @@ final class AppleTranslationBridge: TextTranslationService {
     }
 
     func translateBatch(_ texts: [String]) async throws -> [String] {
+        try await translateBatch(texts, onPartialResult: { _, _ in })
+    }
+
+    func translateBatch(
+        _ texts: [String],
+        onPartialResult: @escaping @MainActor @Sendable (Int, String) -> Void
+    ) async throws -> [String] {
         guard #available(iOS 18.0, *) else {
             throw TranslationError.unavailable("ترجمة Apple المخصصة تتطلب iPadOS 18 أو أحدث؛ التطبيق يبقى متوافقًا مع iPadOS 17.")
         }
@@ -121,7 +129,7 @@ final class AppleTranslationBridge: TextTranslationService {
                 group.addTask { [weak self] in
                     guard let self else { throw TranslationError.failed("انتهت جلسة الترجمة.") }
                     try await self.waitUntilReady(id: id)
-                    return try await self.enqueueAndWait(id: id, texts: cleanedTexts)
+                    return try await self.enqueueAndWait(id: id, texts: cleanedTexts, onPartialResult: onPartialResult)
                 }
                 group.addTask {
                     try await Task.sleep(for: .seconds(20))
@@ -141,10 +149,14 @@ final class AppleTranslationBridge: TextTranslationService {
         }
     }
 
-    private func enqueueAndWait(id: UUID, texts: [String]) async throws -> [String] {
+    private func enqueueAndWait(
+        id: UUID,
+        texts: [String],
+        onPartialResult: @escaping @MainActor @Sendable (Int, String) -> Void
+    ) async throws -> [String] {
         try await withTaskCancellationHandler(operation: {
             try await withCheckedThrowingContinuation { continuation in
-                let request = PendingRequest(id: id, texts: texts, continuation: continuation)
+                let request = PendingRequest(id: id, texts: texts, onPartialResult: onPartialResult, continuation: continuation)
                 pendingRequests[id] = request
                 ledger.enqueue(id)
                 record(.requestEnqueued, message: "وصلت دفعة ترجمة من \(texts.count) نصوص إلى AsyncStream.", succeeded: true)
@@ -302,17 +314,29 @@ final class AppleTranslationBridge: TextTranslationService {
                 let requests = request.texts.enumerated().map { index, text in
                     TranslationSession.Request(sourceText: text, clientIdentifier: String(index))
                 }
-                record(.translateStarted, message: "تم استدعاء session.translations لدفعة نصوص.", succeeded: nil)
-                let responses = try await session.translations(from: requests)
-                if Task.isCancelled || generation != sessionGeneration {
-                    ledger.requeue(request.id)
-                    requestContinuation.yield(request)
-                    return
+                record(.translateStarted, message: "بدأت ترجمة Apple التدريجية لدفعة نصوص.", succeeded: nil)
+                var translatedByIndex = Array<String?>(repeating: nil, count: request.texts.count)
+                for try await response in session.translate(batch: requests) {
+                    if Task.isCancelled || generation != sessionGeneration {
+                        ledger.requeue(request.id)
+                        requestContinuation.yield(request)
+                        return
+                    }
+                    guard let index = Int(response.clientIdentifier ?? ""),
+                          translatedByIndex.indices.contains(index) else {
+                        throw TranslationError.failed("أعاد Apple Translation نتيجة دون معرّف نص صالح.")
+                    }
+                    let cleaned = response.targetText.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !cleaned.isEmpty else {
+                        throw TranslationError.failed("أعاد Apple Translation نتيجة فارغة لأحد النصوص.")
+                    }
+                    guard translatedByIndex[index] == nil else { continue }
+                    translatedByIndex[index] = cleaned
+                    await request.onPartialResult(index, cleaned)
                 }
-                let translatedTexts = responses.map { $0.targetText.trimmingCharacters(in: .whitespacesAndNewlines) }
-                guard translatedTexts.count == request.texts.count,
-                      translatedTexts.allSatisfy({ !$0.isEmpty }) else {
-                    throw TranslationError.failed("أعاد Apple Translation دفعة ناقصة أو احتوت على نتيجة فارغة.")
+                let translatedTexts = translatedByIndex.compactMap { $0 }
+                guard translatedTexts.count == request.texts.count else {
+                    throw TranslationError.failed("أعاد Apple Translation دفعة ناقصة.")
                 }
                 if ledger.complete(request.id) {
                     pendingRequests.removeValue(forKey: request.id)
