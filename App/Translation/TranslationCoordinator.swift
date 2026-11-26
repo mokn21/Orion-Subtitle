@@ -43,14 +43,9 @@ final class TranslationCoordinator {
         if #available(iOS 18.0, *) {
             let bridge = AppleTranslationBridge()
                 self.appleTranslationBridge = bridge
-                if let translator {
-                    self.translator = translator
-                } else {
-                    self.translator = TranslationFallbackService(
-                    primary: ExternalAITranslationService(),
-                    fallback: bridge
-                )
-            }
+                // Prefer Apple's on-device Translation framework. Do not send
+                // recognized game text to an external proxy by default.
+                self.translator = translator ?? bridge
         } else {
             self.appleTranslationBridge = nil
             self.translator = translator ?? DefaultTranslationService()
@@ -140,7 +135,7 @@ final class TranslationCoordinator {
 	        nextGeneration &+= 1
 	        let generation = nextGeneration
 	        let translator = self.translator
-			translationStatusMessage = "أُرسل النص إلى خادم الذكاء الاصطناعي الخارجي…"
+			translationStatusMessage = "جارٍ تجهيز الترجمة المحلية…"
 			let task = Task { [weak self] in
 	            guard let self else { return }
 			for observation in observations {
@@ -156,7 +151,7 @@ final class TranslationCoordinator {
 					guard !Task.isCancelled, !translated.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 					self.cache[normalized] = translated
 					self.returnedTranslationCount += 1
-					self.translationStatusMessage = "عادت الترجمات المكانية من الخادم الخارجي أو Apple Translation."
+					self.translationStatusMessage = "اكتملت الترجمة."
 					self.publish(translated, observation: observation, result: result, generation: generation)
 				} catch {
 					guard !Task.isCancelled else { return }
