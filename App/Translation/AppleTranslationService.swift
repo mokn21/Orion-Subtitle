@@ -355,7 +355,7 @@ final class AppleTranslationBridge: TextTranslationService {
                 }
                 _ = ledger.complete(request.id)
                 pendingRequests.removeValue(forKey: request.id)
-                recordFailure(error, phase: .translateFinished, message: "فشلت دفعة session.translations.")
+                recordFailure(error, phase: .translateFinished, message: "فشلت دفعة Apple Translation التدريجية.")
                 request.continuation.resume(throwing: TranslationError.failed(Self.arabicErrorMessage(for: error)))
             }
         }

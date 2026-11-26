@@ -75,6 +75,20 @@ final class TranslationRequestLedgerTests: XCTestCase {
     }
 
 
+    @MainActor
+    func testTranslationBatchPublishesEachLineAsSoonAsItCompletes() async throws {
+        let service = ImmediateTestTranslationService()
+        var partialResults: [(Int, String)] = []
+
+        let results = try await service.translateBatch(["Health", "Press X"]) { index, translated in
+            partialResults.append((index, translated))
+        }
+
+        XCTAssertEqual(results, ["ar:Health", "ar:Press X"])
+        XCTAssertEqual(partialResults.map(\.0), [0, 1])
+        XCTAssertEqual(partialResults.map(\.1), ["ar:Health", "ar:Press X"])
+    }
+
     func testTranslationHistoryPersistsAcrossStoreInstancesAndCanBeCleared() throws {
         let fileURL = FileManager.default.temporaryDirectory
             .appendingPathComponent("orion-history-\(UUID().uuidString).json")
@@ -232,3 +246,10 @@ final class TranslationRequestLedgerTests: XCTestCase {
 			XCTAssertEqual(result.observations.map(\.boundingBox), [first.boundingBox, second.boundingBox])
 		}
 	}
+
+
+private struct ImmediateTestTranslationService: TextTranslationService {
+    func translate(_ text: String) async throws -> String {
+        "ar:\(text)"
+    }
+}
