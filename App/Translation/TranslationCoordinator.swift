@@ -192,6 +192,7 @@ final class TranslationCoordinator {
                     self.acceptOCR(result)
                 } else {
                     self.ocrStatusMessage = "لم يُكتشف نص في آخر إطار."
+                    self.pruneExpiredVisibleEntries()
                 }
 
                 guard let newestFrame = self.pendingOCRFrame else { break }
