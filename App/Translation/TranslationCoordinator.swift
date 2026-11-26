@@ -59,6 +59,9 @@ final class TranslationCoordinator {
 	func start() {
         ocrTask?.cancel()
         ocrTask = nil
+        nextGeneration &+= 1
+        translationTasks.values.forEach { $0.cancel() }
+        translationTasks.removeAll()
 		lastError = nil
 		ocrStatusMessage = "OCR يعمل وينتظر إطارًا نصيًا."
 		translationStatusMessage = "بانتظار نص إنجليزي من OCR."
@@ -74,6 +77,7 @@ final class TranslationCoordinator {
     func stop() {
         ocrTask?.cancel()
         ocrTask = nil
+        nextGeneration &+= 1
         translationTasks.values.forEach { $0.cancel() }
         translationTasks.removeAll()
 		state = .stopped
@@ -137,7 +141,11 @@ final class TranslationCoordinator {
 	        let translator = self.translator
 			translationStatusMessage = "جارٍ تجهيز الترجمة المحلية…"
 			let task = Task { [weak self] in
+                // Let the synchronous caller register this task before it can
+                // finish and remove its generation from the task table.
+                await Task.yield()
 	            guard let self else { return }
+                defer { self.translationTasks[generation] = nil }
 			for observation in observations {
 				guard !Task.isCancelled else { return }
 				let normalized = Self.normalize(observation.text)
@@ -160,7 +168,6 @@ final class TranslationCoordinator {
 					self.translationStatusMessage = "تعذرت ترجمة نص مكاني: \(error.localizedDescription)"
 				}
 			}
-	            self.translationTasks[generation] = nil
 	        }
 	        translationTasks[generation] = task
 	    }
