@@ -504,21 +504,24 @@ struct StreamView: View {
 						ForEach(entries) { entry in
 							let frame = spatialFrame(for: entry.boundingBox, in: geo.size, mode: session.settings.displayMode)
                             ZStack {
-                                RoundedRectangle(cornerRadius: 8).fill(Color.black)
+                                RoundedRectangle(cornerRadius: 2).fill(Color.black)
                                 Text(entry.translatedText)
-                                    .font(.system(size: session.settings.translationFontSize, weight: .semibold))
+                                    .font(.system(
+                                        size: min(session.settings.translationFontSize, max(8, frame.height * 0.72)),
+                                        weight: .semibold
+                                    ))
                                     .multilineTextAlignment(.center)
                                     .environment(\.layoutDirection, .rightToLeft)
                                     .lineLimit(3)
-                                    .minimumScaleFactor(0.55)
-                                    .padding(5)
+                                    .minimumScaleFactor(0.35)
+                                    .padding(2)
                                     .foregroundStyle(translationColor(session.settings.translationTextColor))
                             }
-                            .frame(
-                                width: max(90, min(frame.width, geo.size.width)),
-                                height: max(52, frame.height)
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                            // Keep the cover aligned to the exact OCR box. A minimum
+                            // width/height would hide neighboring game elements and
+                            // move the translated text away from the source location.
+                            .frame(width: max(1, frame.width), height: max(1, frame.height))
+                            .clipShape(RoundedRectangle(cornerRadius: 2))
                             .position(x: frame.midX, y: frame.midY)
 					}
 					}
