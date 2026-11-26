@@ -43,6 +43,7 @@ final class StreamSession {
 	private(set) var keyboardText: String?
 	/// Folded or backgrounded: video isn't drawn and audio is muted, connection stays up
 	private(set) var paused = false
+	@ObservationIgnored private var translationBlackMode = false
 	/// The most recent decoded frame, used only for the in-app OCR region editor.
 	@ObservationIgnored private(set) var latestFrame: CVPixelBuffer?
 
@@ -250,7 +251,9 @@ final class StreamSession {
 		input.start()
 
 		audio.start(session: created)
-		audio.muted = paused
+        // Black Screen Mode may be selected before the Remote Play audio
+        // object exists; preserve that choice when audio starts.
+        audio.muted = paused || translationBlackMode
 
 			log.notice("Starting Chiaki session off MainActor attempt=\(attemptID.uuidString, privacy: .public)")
 			let work = DispatchWorkItem { [weak self] in
@@ -356,7 +359,8 @@ final class StreamSession {
 
 	/// Black translation mode keeps decoding frames but mutes Remote Play audio.
 	func setTranslationBlackMode(_ enabled: Bool) {
-		audio.muted = enabled || paused
+        translationBlackMode = enabled
+		audio.muted = translationBlackMode || paused
 	}
 
 	func submitPIN(_ pin: String) {
