@@ -62,6 +62,7 @@ struct StreamSettingsForm: View {
 struct SettingsView: View {
 	@Environment(SettingsStore.self) private var store
 	@Environment(ConsoleStore.self) private var consoles
+	@Environment(TranslationHistoryStore.self) private var translationHistory
 	@Environment(\.dismiss) private var dismiss
 
 	var body: some View {
@@ -70,6 +71,22 @@ struct SettingsView: View {
 			Form {
 					StreamSettingsForm(settings: $store.settings)
 					TranslationSettingsForm(settings: $store.settings)
+
+                Section {
+                    NavigationLink {
+                        TranslationHistoryView()
+                    } label: {
+                        HStack {
+                            Label("سجل الترجمات", systemImage: "clock.arrow.circlepath")
+                            Spacer()
+                            Text("\(translationHistory.entries.count)")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                    }
+                } footer: {
+                    Text("يُحفظ سجل آخر 1000 ترجمة محليًا على iPad. يمكنك حذف السجل من داخله.")
+                }
 
 				Section {
 					ShareLink(
@@ -158,4 +175,57 @@ private struct RegionSlider: View {
 			Slider(value: $value, in: range)
 		}
 	}
+}
+
+
+private struct TranslationHistoryView: View {
+    @Environment(TranslationHistoryStore.self) private var history
+    @State private var confirmClear = false
+
+    var body: some View {
+        List {
+            if history.entries.isEmpty {
+                ContentUnavailableView("لا يوجد سجل ترجمات", systemImage: "text.book.closed", description: Text("ستظهر هنا الترجمات التي يعالجها Orion بنجاح."))
+            } else {
+                ForEach(history.entries) { entry in
+                    VStack(alignment: .leading, spacing: 6) {
+                        if let context = entry.context, !context.isEmpty {
+                            Text(context)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        Text(entry.sourceText)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                        Text(entry.translatedText)
+                            .font(.body)
+                        HStack(spacing: 8) {
+                            Text(entry.createdAt, style: .date)
+                            Text(entry.createdAt, style: .time)
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 5)
+                }
+            }
+        }
+        .navigationTitle("سجل الترجمات")
+        .toolbar {
+            if !history.entries.isEmpty {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("مسح السجل", role: .destructive) {
+                        confirmClear = true
+                    }
+                }
+            }
+        }
+        .confirmationDialog("هل تريد مسح سجل الترجمات بالكامل؟", isPresented: $confirmClear, titleVisibility: .visible) {
+            Button("مسح السجل", role: .destructive) {
+                history.clear()
+            }
+            Button("إلغاء", role: .cancel) {}
+        }
+    }
 }
