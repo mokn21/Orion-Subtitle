@@ -11,6 +11,7 @@ struct OrionSubtitlesApp: App {
 	@UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 	@State private var consoles = ConsoleStore()
 	@State private var settings = SettingsStore()
+	@State private var translationHistory = TranslationHistoryStore()
 
 	init() {
 		ChiakiLib.initialise()
@@ -21,6 +22,7 @@ struct OrionSubtitlesApp: App {
 			ConsoleListView()
 				.environment(consoles)
 				.environment(settings)
+				.environment(translationHistory)
 				.preferredColorScheme(.dark)
 				.background {
 					// Track the window size for the streaming layout.
