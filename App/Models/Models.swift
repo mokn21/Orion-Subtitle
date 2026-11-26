@@ -148,6 +148,8 @@ struct StreamSettings: Codable, Equatable {
 	var translationSourceLanguage: String = "en-US"
 	var translationTargetLanguage: String = "ar"
 	var translationRegion: CaptureRegion = .fullScreen
+    var translationSecondRegionEnabled: Bool = false
+    var translationSecondRegion: CaptureRegion = CaptureRegion(x: 0.55, y: 0.05, width: 0.4, height: 0.3)
 	var translationFontSize: Double = 28
 	var translationPositionY: Double = 0.88
 	var translationIntervalMs: Int = 250
@@ -180,6 +182,8 @@ struct StreamSettings: Codable, Equatable {
 		translationSourceLanguage = try c.decodeIfPresent(String.self, forKey: .translationSourceLanguage) ?? d.translationSourceLanguage
 		translationTargetLanguage = try c.decodeIfPresent(String.self, forKey: .translationTargetLanguage) ?? d.translationTargetLanguage
 		translationRegion = try c.decodeIfPresent(CaptureRegion.self, forKey: .translationRegion) ?? d.translationRegion
+        translationSecondRegionEnabled = try c.decodeIfPresent(Bool.self, forKey: .translationSecondRegionEnabled) ?? d.translationSecondRegionEnabled
+        translationSecondRegion = try c.decodeIfPresent(CaptureRegion.self, forKey: .translationSecondRegion) ?? d.translationSecondRegion
 			translationFontSize = try c.decodeIfPresent(Double.self, forKey: .translationFontSize) ?? d.translationFontSize
 			translationPositionY = try c.decodeIfPresent(Double.self, forKey: .translationPositionY) ?? d.translationPositionY
 			translationIntervalMs = try c.decodeIfPresent(Int.self, forKey: .translationIntervalMs) ?? d.translationIntervalMs
