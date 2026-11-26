@@ -350,7 +350,7 @@ final class StreamSession {
 		guard paused != self.paused else { return }
 		self.paused = paused
 		renderer?.setPaused(paused)
-		audio.muted = paused
+        audio.muted = paused || translationBlackMode
 		if !paused, let handle {
 			// We dropped frames while paused, so get a clean keyframe
 			ck_session_request_idr(handle)
