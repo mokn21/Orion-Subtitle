@@ -3,6 +3,7 @@ import SwiftUI
 /// Stream settings, shared by the main settings sheet and the in-stream menu.
 struct StreamSettingsForm: View {
 	@Binding var settings: StreamSettings
+    var showSecondRegionControls: Bool = true
 
 	var body: some View {
 		Section {
@@ -56,6 +57,7 @@ struct StreamSettingsForm: View {
 		} footer: {
 				Text("يُستخدم مستشعر حركة iPad عندما لا تحتوي وحدة التحكم على مستشعرات حركة. اضغط Select وStart معًا لمدة ثانية أثناء البث لفتح القائمة.")
 		}
+        if showSecondRegionControls {
         Section {
             Toggle("تفعيل منطقة OCR ثانية مستقلة", isOn: $settings.translationSecondRegionEnabled)
             if settings.translationSecondRegionEnabled {
@@ -68,6 +70,7 @@ struct StreamSettingsForm: View {
             Text("منطقة OCR الثانية")
         } footer: {
             Text("معطّلة افتراضيًا. عند تفعيلها، تعالج منطقة مستقلة بالتوازي مع المنطقة الأولى.")
+        }
         }
 	}
 }
@@ -82,7 +85,7 @@ struct SettingsView: View {
 		@Bindable var store = store
 		NavigationStack {
 			Form {
-					StreamSettingsForm(settings: $store.settings)
+					StreamSettingsForm(settings: $store.settings, showSecondRegionControls: false)
 					TranslationSettingsForm(settings: $store.settings)
 
                 Section {
