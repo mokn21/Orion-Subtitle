@@ -10,14 +10,30 @@ final class OCRService {
 
     func recognize(pixelBuffer: CVPixelBuffer, capturedAt: ContinuousClock.Instant = ContinuousClock.now) async -> OCRResult? {
         let startedAt = ContinuousClock.now
+        let selectedRegion = region.clamped
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = recognitionLevel
         request.recognitionLanguages = sourceLanguage == "auto" ? [] : [sourceLanguage]
         request.usesLanguageCorrection = false
-        let selectedRegion = region.clamped
-        request.regionOfInterest = selectedRegion.cgRect
 
-        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
+        // Crop the actual image before Vision instead of relying on
+        // regionOfInterest. This gives OCR a zero-origin image whose
+        // observations can be mapped back to the full video deterministically.
+        let fullImage = CIImage(cvPixelBuffer: pixelBuffer)
+        let extent = fullImage.extent
+        guard extent.width > 0, extent.height > 0 else { return nil }
+        let cropRect = CGRect(
+            x: extent.minX + selectedRegion.x * extent.width,
+            y: extent.minY + selectedRegion.y * extent.height,
+            width: selectedRegion.width * extent.width,
+            height: selectedRegion.height * extent.height
+        ).intersection(extent)
+        guard !cropRect.isNull, cropRect.width >= 1, cropRect.height >= 1 else { return nil }
+
+        let croppedImage = fullImage
+            .cropped(to: cropRect)
+            .transformed(by: CGAffineTransform(translationX: -cropRect.minX, y: -cropRect.minY))
+        let handler = VNImageRequestHandler(ciImage: croppedImage, orientation: .up, options: [:])
         do {
             try Task.checkCancellation()
             try handler.perform([request])
@@ -28,16 +44,22 @@ final class OCRService {
             log.error("Vision OCR failed: \(String(describing: error), privacy: .public)")
             return nil
         }
-        // Vision uses the ROI as a processing hint. Filter the observations a
-        // second time so text whose bounding box lies outside the user's saved
-        // rectangle can never reach translation.
+
+        // Vision coordinates are normalized to the cropped image. Restore
+        // full-frame coordinates so the overlay remains aligned with the game.
         let observations = (request.results ?? []).compactMap { observation -> OCRTextObservation? in
-            guard selectedRegion.cgRect.contains(CGPoint(x: observation.boundingBox.midX, y: observation.boundingBox.midY)),
-                  let candidate = observation.topCandidates(1).first,
+            guard let candidate = observation.topCandidates(1).first,
                   candidate.confidence >= minimumConfidence else { return nil }
             let text = candidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return nil }
-            return OCRTextObservation(text: text, boundingBox: observation.boundingBox, confidence: candidate.confidence)
+            let local = observation.boundingBox
+            let fullFrameBox = CGRect(
+                x: selectedRegion.x + local.minX * selectedRegion.width,
+                y: selectedRegion.y + local.minY * selectedRegion.height,
+                width: local.width * selectedRegion.width,
+                height: local.height * selectedRegion.height
+            )
+            return OCRTextObservation(text: text, boundingBox: fullFrameBox, confidence: candidate.confidence)
         }
         guard !observations.isEmpty else { return nil }
         return OCRResult(observations: observations, capturedAt: capturedAt, startedAt: startedAt, finishedAt: ContinuousClock.now)
