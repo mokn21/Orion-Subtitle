@@ -86,7 +86,11 @@ final class AppleTranslationBridge: TextTranslationService {
         let pair = AsyncStream<PendingRequest>.makeStream()
         requestStream = pair.stream
         requestContinuation = pair.continuation
-        configuration = TranslationSession.Configuration(source: source, target: target)
+        configuration = TranslationSession.Configuration(
+            source: source,
+            target: target,
+            preferredStrategy: .highFidelity
+        )
         record(.configurationCreated, message: "تم إنشاء TranslationSession.Configuration للإنجليزية إلى العربية.", succeeded: true)
     }
 
@@ -204,9 +208,10 @@ final class AppleTranslationBridge: TextTranslationService {
     @available(iOS 18.0, *)
     private func process(session: TranslationSession, generation: UInt64) async {
         record(.workerStarted, message: "بدأ عامل استهلاك AsyncStream.", succeeded: true)
-        record(.sessionReceived, message: "استلمت الجلسة؛ SDK الحالية لا توفر session.isReady أو canRequestDownloads على TranslationSession.", succeeded: true)
+        record(.sessionReceived, message: "استلمت الجلسة مع فحص isReady وcanRequestDownloads قبل استقبال الطلبات.", succeeded: true)
         record(.availabilityStarted, message: "جارٍ فحص توفر English إلى Arabic.", succeeded: nil)
-        let availability = await LanguageAvailability().status(from: source, to: target)
+        let availability = await LanguageAvailability(preferredStrategy: .highFidelity)
+            .status(from: source, to: target)
         guard generation == sessionGeneration, !Task.isCancelled else { return }
         record(.availabilityFinished, message: "حالة توفر English إلى Arabic: \(String(describing: availability)).", succeeded: availability == .installed || availability == .supported)
         guard availability == .installed || availability == .supported else {
@@ -219,27 +224,40 @@ final class AppleTranslationBridge: TextTranslationService {
             return
         }
 
-        statusMessage = availability == .installed
-            ? "نماذج ترجمة English إلى العربية جاهزة."
-            : "نماذج ترجمة English إلى العربية غير مثبتة؛ سيطلب النظام تنزيلها."
+        if session.isReady {
+            statusMessage = "نماذج ترجمة English إلى العربية مثبتة وجاهزة."
+        } else {
+            guard session.canRequestDownloads else {
+                let error = TranslationError.unavailable("نماذج الترجمة غير مثبتة، وهذه الجلسة لا تستطيع طلب تنزيلها.")
+                availabilityFailure = error
+                statusMessage = error.localizedDescription
+                failReadinessWaiters(with: error)
+                failPending(with: error)
+                recordFailure(error, phase: .preparationStarted, message: "الجلسة لا تسمح بطلب تنزيل نماذج اللغة.")
+                return
+            }
 
-        do {
+            do {
                 statusMessage = "جارٍ طلب تنزيل نماذج English إلى العربية…"
                 record(.preparationStarted, message: "بدأ prepareTranslation لتنزيل نموذج اللغة.", succeeded: nil)
                 try await session.prepareTranslation()
                 guard generation == sessionGeneration, !Task.isCancelled else { return }
-                record(.preparationFinished, message: "انتهى prepareTranslation بنجاح؛ لا توفر SDK قيمة session.isReady.", succeeded: true)
-                statusMessage = "تم تنزيل نماذج English إلى العربية وأصبحت جاهزة."
+                guard session.isReady else {
+                    throw TranslationError.failed("انتهى تجهيز نماذج الترجمة لكن الجلسة لم تصبح جاهزة.")
+                }
+                record(.preparationFinished, message: "انتهى prepareTranslation وأصبحت session.isReady صحيحة.", succeeded: true)
+                statusMessage = "تم تجهيز نماذج English إلى العربية وأصبحت جاهزة."
             } catch {
                 guard generation == sessionGeneration, !Task.isCancelled else { return }
                 recordFailure(error, phase: .preparationFinished, message: "فشل prepareTranslation.")
-                let failure = TranslationError.failed("تعذر تنزيل نماذج Apple Translation. وافق على التنزيل وتحقق من اتصال الإنترنت ثم حاول مرة أخرى.")
+                let failure = TranslationError.failed("تعذر تجهيز نماذج Apple Translation. وافق على التنزيل وتحقق من اتصال الإنترنت ثم حاول مرة أخرى.")
                 availabilityFailure = failure
                 statusMessage = failure.localizedDescription
                 failReadinessWaiters(with: failure)
                 failPending(with: failure)
                 return
             }
+        }
 
         sessionReady = true
         statusMessage = "جلسة Apple Translation جاهزة للترجمة الإنجليزية إلى العربية."
