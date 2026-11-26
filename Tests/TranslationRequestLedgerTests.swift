@@ -74,6 +74,32 @@ final class TranslationRequestLedgerTests: XCTestCase {
         XCTAssertTrue(ledger.completed.contains(ids[299]))
     }
 
+
+    func testTranslationHistoryPersistsAcrossStoreInstancesAndCanBeCleared() throws {
+        let fileURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("orion-history-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+
+        let firstStore = TranslationHistoryStore(fileURL: fileURL)
+        firstStore.append(
+            sourceText: "Press start",
+            translatedText: "اضغط ابدأ",
+            context: "Test Console",
+            boundingBox: CGRect(x: 0.1, y: 0.2, width: 0.3, height: 0.1),
+            confidence: 0.95
+        )
+
+        let reopenedStore = TranslationHistoryStore(fileURL: fileURL)
+        XCTAssertEqual(reopenedStore.entries.count, 1)
+        XCTAssertEqual(reopenedStore.entries.first?.sourceText, "Press start")
+        XCTAssertEqual(reopenedStore.entries.first?.translatedText, "اضغط ابدأ")
+        XCTAssertEqual(reopenedStore.entries.first?.context, "Test Console")
+
+        reopenedStore.clear()
+        let clearedStore = TranslationHistoryStore(fileURL: fileURL)
+        XCTAssertTrue(clearedStore.entries.isEmpty)
+    }
+
 	func testVideoAccessUnitSplitsThreeAndFourByteAnnexBStartCodes() {
 		let bytes: [UInt8] = [
 			0, 0, 0, 1, 0x67, 0x64, 0,
