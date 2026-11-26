@@ -170,13 +170,26 @@ struct TranslationDiagnosticsView: View {
                 } catch {
                     let batchFinished = ContinuousClock.now
                     let elapsed = Self.elapsedMilliseconds(batchStarted, batchFinished)
+                    let failure = bridge.lastFailure
+                    let originalFailureDetails: String
+                    if let failure {
+                        originalFailureDetails = [
+                            "Apple error: \(failure.typeName)",
+                            "domain: \(failure.domain ?? "غير متوفر")",
+                            "code: \(failure.code.map(String.init) ?? "غير متوفر")",
+                            failure.localizedDescription,
+                            failure.userInfo ?? ""
+                        ].filter { !$0.isEmpty }.joined(separator: "\\n")
+                    } else {
+                        originalFailureDetails = "لم يسجل إطار Apple سببًا أصليًا إضافيًا."
+                    }
                     output = samples.map { sample in
                         SampleResult(
                             source: sample,
                             target: nil,
-                            error: error.localizedDescription,
+                            error: "\(error.localizedDescription)\\n\\n\(originalFailureDetails)",
                             elapsedMilliseconds: elapsed,
-                            phase: bridge.diagnosticEvents.last?.phase.rawValue ?? "failed"
+                            phase: failure?.phase.rawValue ?? "failed"
                         )
                     }
                 }
