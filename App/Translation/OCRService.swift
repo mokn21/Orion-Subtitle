@@ -4,10 +4,10 @@ import Foundation
 import Vision
 
 final class OCRService {
-    var recognitionLevel: VNRequestTextRecognitionLevel = .fast
+    var recognitionLevel: VNRequestTextRecognitionLevel = .accurate
     var region: CaptureRegion = .fullScreen
     var sourceLanguage = "en-US"
-    var minimumConfidence: Float = 0.35
+    var minimumConfidence: Float = 0.55
 
     func recognize(pixelBuffer: CVPixelBuffer, capturedAt: ContinuousClock.Instant = ContinuousClock.now) async -> OCRResult? {
         let startedAt = ContinuousClock.now
@@ -54,6 +54,14 @@ final class OCRService {
             let text = candidate.string.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return nil }
             let local = observation.boundingBox
+            // Ignore malformed or screen-sized Vision boxes. A single bad
+            // observation must never create a giant black overlay.
+            guard local.minX.isFinite, local.minY.isFinite,
+                  local.width.isFinite, local.height.isFinite,
+                  local.width > 0, local.height > 0,
+                  local.minX >= 0, local.minY >= 0,
+                  local.maxX <= 1.001, local.maxY <= 1.001,
+                  local.width <= 0.95, local.height <= 0.30 else { return nil }
             let fullFrameBox = CGRect(
                 x: CGFloat(selectedRegion.x) + local.minX * CGFloat(selectedRegion.width),
                 y: CGFloat(selectedRegion.y) + local.minY * CGFloat(selectedRegion.height),
