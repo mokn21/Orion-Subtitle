@@ -27,6 +27,8 @@ final class TranslationCoordinator {
 
     private let ocr: OCRService
     private let translator: TextTranslationService
+    private let historyStore: TranslationHistoryStore?
+    private let historyContext: String?
     private var ocrTask: Task<Void, Never>?
     private var translationTasks: [UInt64: Task<Void, Never>] = [:]
     private var lastSubmittedAt: ContinuousClock.Instant?
@@ -36,8 +38,15 @@ final class TranslationCoordinator {
 
     let appleTranslationBridge: AnyObject?
 
-    init(ocr: OCRService = OCRService(), translator: TextTranslationService? = nil) {
+    init(
+        ocr: OCRService = OCRService(),
+        translator: TextTranslationService? = nil,
+        historyStore: TranslationHistoryStore? = nil,
+        historyContext: String? = nil
+    ) {
         self.ocr = ocr
+        self.historyStore = historyStore
+        self.historyContext = historyContext
         self.ocr.sourceLanguage = "en-US"
 #if canImport(SwiftUI) && canImport(Translation)
         if #available(iOS 18.0, *) {
@@ -221,6 +230,14 @@ final class TranslationCoordinator {
 		latestEntry = entry
 		visibleEntries.append(entry)
 		recentEntries = ([entry] + recentEntries).prefix(6).map { $0 }
+        historyStore?.append(
+            sourceText: entry.sourceText,
+            translatedText: entry.translatedText,
+            context: historyContext,
+            boundingBox: entry.boundingBox,
+            confidence: entry.confidence,
+            createdAt: entry.createdAt
+        )
 	}
 
     private static func normalize(_ text: String) -> String {
