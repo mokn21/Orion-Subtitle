@@ -21,9 +21,25 @@ final class TranslationCoordinator {
         didSet { ocr.region = region }
     }
     var sourceLanguage = "en-US" {
-        didSet { ocr.sourceLanguage = sourceLanguage }
+        didSet {
+            ocr.sourceLanguage = sourceLanguage
+            secondaryCoordinator?.sourceLanguage = sourceLanguage
+        }
     }
-    var minimumFrameInterval: Duration = .milliseconds(250)
+    var minimumFrameInterval: Duration = .milliseconds(250) {
+        didSet { secondaryCoordinator?.minimumFrameInterval = minimumFrameInterval }
+    }
+    private(set) var secondaryCoordinator: TranslationCoordinator?
+    var secondaryEnabled = false {
+        didSet {
+            guard oldValue != secondaryEnabled else { return }
+            if secondaryEnabled, state == .running {
+                secondaryCoordinator?.start()
+            } else if !secondaryEnabled {
+                secondaryCoordinator?.stop()
+            }
+        }
+    }
 
     private let ocr: OCRService
     private let translator: TextTranslationService
@@ -67,6 +83,22 @@ final class TranslationCoordinator {
 #endif
     }
 
+    func configureSecondary(historyContext: String? = nil) {
+        guard secondaryCoordinator == nil else { return }
+        let secondary = TranslationCoordinator(
+            ocr: OCRService(),
+            translator: translator,
+            historyStore: historyStore,
+            historyContext: historyContext
+        )
+        secondary.sourceLanguage = sourceLanguage
+        secondary.minimumFrameInterval = minimumFrameInterval
+        secondaryCoordinator = secondary
+        if secondaryEnabled, state == .running {
+            secondary.start()
+        }
+    }
+
 	func start() {
         ocrTask?.cancel()
         ocrTask = nil
@@ -78,12 +110,14 @@ final class TranslationCoordinator {
 		ocrStatusMessage = "OCR يعمل وينتظر إطارًا نصيًا."
 		translationStatusMessage = "بانتظار نص إنجليزي من OCR."
 		state = .running
+        if secondaryEnabled { secondaryCoordinator?.start() }
     }
 
     func pause() {
         ocrTask?.cancel()
         ocrTask = nil
         state = .paused
+        secondaryCoordinator?.pause()
     }
 
     func stop() {
@@ -93,6 +127,7 @@ final class TranslationCoordinator {
         translationTasks.values.forEach { $0.cancel() }
         translationTasks.removeAll()
 		state = .stopped
+        secondaryCoordinator?.stop()
 		lastObservationFingerprint = ""
 		visibleEntries = []
 		ocrStatusMessage = "تم إيقاف OCR والترجمة."
@@ -100,6 +135,9 @@ final class TranslationCoordinator {
     }
 
     func submit(pixelBuffer: CVPixelBuffer) {
+        if secondaryEnabled {
+            secondaryCoordinator?.submit(pixelBuffer: pixelBuffer)
+        }
         guard state == .running else {
             skippedFrames += 1
             return
