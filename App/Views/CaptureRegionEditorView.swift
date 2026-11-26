@@ -8,9 +8,8 @@ struct CaptureRegionEditorView: View {
     @Binding var region: CaptureRegion
     @Environment(\.dismiss) private var dismiss
     @State private var draft: CaptureRegion
-    @State private var zoom: Double = 1
-    @State private var previewOffset: CGSize = .zero
-    @State private var panStart: CGSize?
+    @State private var isDrawingRegion = false
+    @State private var drawStart: CGPoint?
     @State private var moveStart: CaptureRegion?
     @State private var resizeStart: CaptureRegion?
 
@@ -30,26 +29,35 @@ struct CaptureRegionEditorView: View {
                         preview
                             .frame(width: canvas.width, height: canvas.height)
                             .clipped()
-                        regionOverlay(canvas: canvas)
+                        if isDrawingRegion {
+                            drawingOverlay(canvas: canvas)
+                        } else {
+                            regionOverlay(canvas: canvas)
+                        }
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
                 .padding(.horizontal)
 
                 VStack(spacing: 8) {
-                    labeledSlider(title: "تكبير المعاينة", value: $zoom, range: 0.5...2.0, label: String(format: "%.0f%%", zoom * 100))
                     labeledSlider(title: "العرض", value: $draft.width, range: 0.05...1, label: String(format: "%.0f%%", draft.width * 100))
                     labeledSlider(title: "الارتفاع", value: $draft.height, range: 0.05...1, label: String(format: "%.0f%%", draft.height * 100))
                 }
                 .padding(.horizontal)
                 HStack {
-                    Text("حرّك الصورة بإصبعك، واسحب المربع الأزرق لتغيير مكان الالتقاط")
+                    Text(isDrawingRegion ? "اسحب على الصورة لرسم مستطيل الالتقاط الجديد" : "اسحب المربع الأزرق لتحريكه، أو اسحب مقبضه لتغيير حجمه")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("إعادة ضبط") {
-                        zoom = 1
-                        previewOffset = .zero
+                    Button(isDrawingRegion ? "إلغاء الرسم" : "رسم منطقة جديدة") {
+                        isDrawingRegion.toggle()
+                        drawStart = nil
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Button("ملء الشاشة") {
+                        draft = .fullScreen
+                        isDrawingRegion = false
+                        drawStart = nil
                     }
                     .buttonStyle(.bordered)
                 }
@@ -75,9 +83,6 @@ struct CaptureRegionEditorView: View {
                 Image(uiImage: image)
                     .resizable()
                     .scaledToFit()
-                    .scaleEffect(zoom)
-                    .offset(previewOffset)
-                    .gesture(previewPanGesture())
             } else {
                 ZStack {
                     Color(white: 0.08)
@@ -117,6 +122,45 @@ struct CaptureRegionEditorView: View {
             }
     }
 
+    private func drawingOverlay(canvas: CGSize) -> some View {
+        ZStack {
+            Color.clear
+                .contentShape(Rectangle())
+                .gesture(drawGesture(canvas: canvas))
+            let r = draft.clamped
+            let width = canvas.width * r.width
+            let height = canvas.height * r.height
+            let origin = CGPoint(x: canvas.width * r.x, y: canvas.height * (1 - r.y - r.height))
+            RoundedRectangle(cornerRadius: 4)
+                .stroke(Color.cyan, style: StrokeStyle(lineWidth: 3, dash: [8, 5]))
+                .frame(width: width, height: height)
+                .position(x: origin.x + width / 2, y: origin.y + height / 2)
+                .allowsHitTesting(false)
+        }
+    }
+
+    private func drawGesture(canvas: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 2)
+            .onChanged { value in
+                if drawStart == nil { drawStart = value.startLocation }
+                guard let start = drawStart else { return }
+                let startX = min(max(start.x / canvas.width, 0), 1)
+                let startY = 1 - min(max(start.y / canvas.height, 0), 1)
+                let endX = min(max(value.location.x / canvas.width, 0), 1)
+                let endY = 1 - min(max(value.location.y / canvas.height, 0), 1)
+                draft = CaptureRegion(
+                    x: min(startX, endX),
+                    y: min(startY, endY),
+                    width: max(0.05, abs(endX - startX)),
+                    height: max(0.05, abs(endY - startY))
+                ).clamped
+            }
+            .onEnded { _ in
+                drawStart = nil
+                isDrawingRegion = false
+            }
+    }
+
     private func moveGesture(canvas: CGSize) -> some Gesture {
         DragGesture(minimumDistance: 2).onChanged { value in
             if moveStart == nil { moveStart = draft.clamped }
@@ -137,19 +181,6 @@ struct CaptureRegionEditorView: View {
         }.onEnded { _ in
             resizeStart = nil
         }
-    }
-
-    private func previewPanGesture() -> some Gesture {
-        DragGesture(minimumDistance: 2)
-            .onChanged { value in
-                if panStart == nil { panStart = previewOffset }
-                guard let panStart else { return }
-                previewOffset = CGSize(
-                    width: panStart.width + value.translation.width,
-                    height: panStart.height + value.translation.height
-                )
-            }
-            .onEnded { _ in panStart = nil }
     }
 
     private func labeledSlider(title: String, value: Binding<Double>, range: ClosedRange<Double>, label: String) -> some View {
