@@ -246,35 +246,46 @@ final class TranslationCoordinator {
                 await Task.yield()
 	            guard let self else { return }
                 defer { self.translationTasks[generation] = nil }
-            var uncachedObservations: [OCRTextObservation] = []
+            // Translate each distinct normalized string once per OCR frame.
+            // Repeated game labels can reuse one result across multiple boxes.
+            var uncachedTexts: [String] = []
+            var observationsByText: [[OCRTextObservation]] = []
+            var indexByText: [String: Int] = [:]
+
             for observation in observations {
                 guard !Task.isCancelled else { return }
                 let normalized = Self.normalize(observation.text)
                 if let cached = self.cache[normalized] {
                     self.publish(cached, observation: observation, result: result, generation: generation)
+                } else if let index = indexByText[normalized] {
+                    observationsByText[index].append(observation)
                 } else {
-                    uncachedObservations.append(observation)
+                    indexByText[normalized] = uncachedTexts.count
+                    uncachedTexts.append(observation.text)
+                    observationsByText.append([observation])
                 }
             }
 
-            guard !uncachedObservations.isEmpty else {
+            guard !uncachedTexts.isEmpty else {
                 self.translationStatusMessage = "اكتملت الترجمة من الذاكرة المؤقتة."
                 return
             }
 
-            self.submittedTranslationCount += uncachedObservations.count
+            self.submittedTranslationCount += uncachedTexts.count
             do {
-                _ = try await translator.translateBatch(uncachedObservations.map(\.text)) { [weak self] index, translated in
+                _ = try await translator.translateBatch(uncachedTexts) { [weak self] index, translated in
                     guard let self,
                           !Task.isCancelled,
                           generation == self.nextGeneration,
-                          uncachedObservations.indices.contains(index) else { return }
-                    let observation = uncachedObservations[index]
+                          observationsByText.indices.contains(index) else { return }
+                    let matchingObservations = observationsByText[index]
                     let cleaned = translated.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard !cleaned.isEmpty else { return }
-                    self.storeCachedTranslation(cleaned, for: Self.normalize(observation.text))
+                    guard !cleaned.isEmpty, let first = matchingObservations.first else { return }
+                    self.storeCachedTranslation(cleaned, for: Self.normalize(first.text))
                     self.returnedTranslationCount += 1
-                    self.publish(cleaned, observation: observation, result: result, generation: generation)
+                    for observation in matchingObservations {
+                        self.publish(cleaned, observation: observation, result: result, generation: generation)
+                    }
                 }
                 guard !Task.isCancelled else { return }
                 self.translationStatusMessage = "اكتملت ترجمة الدفعة."
