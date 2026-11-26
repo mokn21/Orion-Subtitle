@@ -42,6 +42,20 @@ final class OCRService {
 
 protocol TextTranslationService {
     func translate(_ text: String) async throws -> String
+    func translateBatch(_ texts: [String]) async throws -> [String]
+}
+
+extension TextTranslationService {
+    /// Services without a native batch API retain a correct sequential fallback.
+    func translateBatch(_ texts: [String]) async throws -> [String] {
+        var translations: [String] = []
+        translations.reserveCapacity(texts.count)
+        for text in texts {
+            try Task.checkCancellation()
+            translations.append(try await translate(text))
+        }
+        return translations
+    }
 }
 
 struct UnavailableTranslationService: TextTranslationService {
