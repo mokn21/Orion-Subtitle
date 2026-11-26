@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 import Observation
 
@@ -292,7 +293,7 @@ final class TranslationHistoryStore {
             let data = try JSONEncoder().encode(entries)
             try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         } catch {
-            log.error("Saving translation history failed: \\(error.localizedDescription, privacy: .public)")
+            log.error("Saving translation history failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 }
