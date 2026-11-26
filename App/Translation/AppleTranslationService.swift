@@ -278,11 +278,10 @@ final class AppleTranslationBridge: TextTranslationService {
                 try await session.prepareTranslation()
                 guard generation == sessionGeneration, !Task.isCancelled else { return }
                 if #available(iOS 26.0, *) {
-                    guard await session.isReady else {
-                        throw TranslationError.failed("انتهى تجهيز نماذج الترجمة لكن الجلسة لم تصبح جاهزة.")
-                    }
+                    try await waitForSessionReady(session, generation: generation)
                 }
-                record(.preparationFinished, message: "انتهى prepareTranslation بنجاح وأصبحت الجلسة جاهزة.", succeeded: true)
+                guard generation == sessionGeneration, !Task.isCancelled else { return }
+                record(.preparationFinished, message: "انتهى تجهيز نماذج English إلى العربية وأصبحت الجلسة جاهزة فعليًا.", succeeded: true)
                 statusMessage = "تم تجهيز نماذج English إلى العربية وأصبحت جاهزة."
             } catch {
                 guard generation == sessionGeneration, !Task.isCancelled else { return }
@@ -366,6 +365,29 @@ final class AppleTranslationBridge: TextTranslationService {
                 request.continuation.resume(throwing: TranslationError.failed(Self.arabicErrorMessage(for: error)))
             }
         }
+    }
+
+    @available(iOS 26.0, *)
+    private func waitForSessionReady(_ session: TranslationSession, generation: UInt64) async throws {
+        // prepareTranslation() can return while an approved language download
+        // is still in progress. Do not treat that intermediate state as failure.
+        let deadline = Date().addingTimeInterval(180)
+        statusMessage = "تم قبول تجهيز نماذج اللغة؛ جارٍ انتظار اكتمال التنزيل…"
+
+        while Date() < deadline {
+            try Task.checkCancellation()
+            guard generation == sessionGeneration else {
+                throw TranslationError.failed("تغيرت جلسة Apple Translation أثناء انتظار جاهزيتها.")
+            }
+
+            if await session.isReady {
+                return
+            }
+
+            try await Task.sleep(for: .seconds(1))
+        }
+
+        throw TranslationError.failed("لم تصبح جلسة Apple Translation جاهزة بعد انتظار اكتمال تنزيل النماذج لمدة 3 دقائق. تحقق من اتصال الإنترنت ومساحة الجهاز، ثم أعد المحاولة.")
     }
 
     private func failPending(with error: TranslationError) {
