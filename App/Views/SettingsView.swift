@@ -70,7 +70,7 @@ struct SettingsView: View {
 		@Bindable var store = store
 		NavigationStack {
 			Form {
-					StreamSettingsForm(settings: $store.settings, showSecondRegionControls: false)
+					StreamSettingsForm(settings: $store.settings)
 					TranslationSettingsForm(settings: $store.settings)
 
                 Section {
