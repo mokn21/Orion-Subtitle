@@ -23,8 +23,12 @@ final class OCRService {
         let fullImage = CIImage(cvPixelBuffer: pixelBuffer)
         let extent = fullImage.extent
         guard extent.width > 0, extent.height > 0 else { return nil }
+        // The capture preview is horizontally mirrored relative to the
+        // decoded pixel buffer. Convert the user's visible left/right selection
+        // into the corresponding source-image crop.
+        let sourceRegionX = 1.0 - selectedRegion.x - selectedRegion.width
         let cropRect = CGRect(
-            x: extent.minX + CGFloat(selectedRegion.x) * extent.width,
+            x: extent.minX + CGFloat(sourceRegionX) * extent.width,
             y: extent.minY + CGFloat(selectedRegion.y) * extent.height,
             width: CGFloat(selectedRegion.width) * extent.width,
             height: CGFloat(selectedRegion.height) * extent.height
@@ -62,8 +66,10 @@ final class OCRService {
                   local.minX >= 0, local.minY >= 0,
                   local.maxX <= 1.001, local.maxY <= 1.001,
                   local.width <= 0.95, local.height <= 0.30 else { return nil }
+            // Restore the mirrored crop's detections to the visible preview
+            // coordinate system so the replacement overlay lands on the text.
             let fullFrameBox = CGRect(
-                x: CGFloat(selectedRegion.x) + local.minX * CGFloat(selectedRegion.width),
+                x: 1.0 - CGFloat(selectedRegion.x) - local.maxX * CGFloat(selectedRegion.width),
                 y: CGFloat(selectedRegion.y) + local.minY * CGFloat(selectedRegion.height),
                 width: local.width * CGFloat(selectedRegion.width),
                 height: local.height * CGFloat(selectedRegion.height)
