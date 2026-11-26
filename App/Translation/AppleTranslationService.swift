@@ -86,11 +86,15 @@ final class AppleTranslationBridge: TextTranslationService {
         let pair = AsyncStream<PendingRequest>.makeStream()
         requestStream = pair.stream
         requestContinuation = pair.continuation
-        configuration = TranslationSession.Configuration(
-            source: source,
-            target: target,
-            preferredStrategy: .highFidelity
-        )
+        if #available(iOS 26.4, *) {
+            configuration = TranslationSession.Configuration(
+                source: source,
+                target: target,
+                preferredStrategy: .highFidelity
+            )
+        } else {
+            configuration = TranslationSession.Configuration(source: source, target: target)
+        }
         record(.configurationCreated, message: "تم إنشاء TranslationSession.Configuration للإنجليزية إلى العربية.", succeeded: true)
     }
 
@@ -219,8 +223,13 @@ final class AppleTranslationBridge: TextTranslationService {
         record(.workerStarted, message: "بدأ عامل استهلاك AsyncStream.", succeeded: true)
         record(.sessionReceived, message: "استلمت الجلسة مع فحص isReady وcanRequestDownloads قبل استقبال الطلبات.", succeeded: true)
         record(.availabilityStarted, message: "جارٍ فحص توفر English إلى Arabic.", succeeded: nil)
-        let availability = await LanguageAvailability(preferredStrategy: .highFidelity)
-            .status(from: source, to: target)
+        let availability: LanguageAvailability.Status
+        if #available(iOS 26.4, *) {
+            availability = await LanguageAvailability(preferredStrategy: .highFidelity)
+                .status(from: source, to: target)
+        } else {
+            availability = await LanguageAvailability().status(from: source, to: target)
+        }
         guard generation == sessionGeneration, !Task.isCancelled else { return }
         record(.availabilityFinished, message: "حالة توفر English إلى Arabic: \(String(describing: availability)).", succeeded: availability == .installed || availability == .supported)
         guard availability == .installed || availability == .supported else {
