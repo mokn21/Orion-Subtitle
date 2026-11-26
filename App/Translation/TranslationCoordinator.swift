@@ -35,6 +35,8 @@ final class TranslationCoordinator {
     private var lastObservationFingerprint = ""
     private var nextGeneration: UInt64 = 0
     private var cache: [String: String] = [:]
+    private var cacheOrder: [String] = []
+    private let maximumCachedTranslations = 512
 
     let appleTranslationBridge: AnyObject?
 
@@ -195,7 +197,7 @@ final class TranslationCoordinator {
                     guard !cleaned.isEmpty else {
                         throw TranslationError.failed("أعاد محرك الترجمة نتيجة فارغة لأحد النصوص.")
                     }
-                    self.cache[Self.normalize(observation.text)] = cleaned
+                    self.storeCachedTranslation(cleaned, for: Self.normalize(observation.text))
                     self.returnedTranslationCount += 1
                     self.publish(cleaned, observation: observation, result: result, generation: generation)
                 }
@@ -239,6 +241,21 @@ final class TranslationCoordinator {
             createdAt: entry.createdAt
         )
 	}
+
+    private func storeCachedTranslation(_ translated: String, for key: String) {
+        if cache[key] == nil {
+            cacheOrder.append(key)
+        }
+        cache[key] = translated
+        if cacheOrder.count > maximumCachedTranslations {
+            let excessCount = cacheOrder.count - maximumCachedTranslations
+            let expiredKeys = Array(cacheOrder.prefix(excessCount))
+            cacheOrder.removeFirst(excessCount)
+            for expiredKey in expiredKeys {
+                cache[expiredKey] = nil
+            }
+        }
+    }
 
     private static func normalize(_ text: String) -> String {
         text.split(whereSeparator: \.isWhitespace).joined(separator: " ").lowercased()
