@@ -55,6 +55,7 @@ final class TranslationCoordinator {
     private var cache: [String: String] = [:]
     private var cacheOrder: [String] = []
     private let maximumCachedTranslations = 512
+    private let visibleEntryExpirationInterval: TimeInterval = 0.55
 
     let appleTranslationBridge: AnyObject?
 
@@ -330,7 +331,7 @@ final class TranslationCoordinator {
 
     private func pruneExpiredVisibleEntries() {
         let now = Date()
-        visibleEntries.removeAll { now.timeIntervalSince($0.lastSeenAt) > 1.25 }
+        visibleEntries.removeAll { now.timeIntervalSince($0.lastSeenAt) > visibleEntryExpirationInterval }
     }
 
     private func publish(_ translated: String, observation: OCRTextObservation, result: OCRResult, generation: UInt64) {
