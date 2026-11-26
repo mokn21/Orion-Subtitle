@@ -100,6 +100,33 @@ final class TranslationRequestLedgerTests: XCTestCase {
         XCTAssertTrue(clearedStore.entries.isEmpty)
     }
 
+
+    func testSecondOCRRegionDefaultsDisabledAndPersists() throws {
+        let defaults = StreamSettings()
+        XCTAssertFalse(defaults.translationSecondRegionEnabled)
+
+        var configured = defaults
+        configured.translationSecondRegionEnabled = true
+        configured.translationSecondRegion = CaptureRegion(x: 0.52, y: 0.08, width: 0.42, height: 0.28)
+
+        let encoded = try JSONEncoder().encode(configured)
+        let decoded = try JSONDecoder().decode(StreamSettings.self, from: encoded)
+        XCTAssertTrue(decoded.translationSecondRegionEnabled)
+        XCTAssertEqual(decoded.translationSecondRegion, configured.translationSecondRegion)
+    }
+
+    func testLegacyStreamSettingsKeepSecondOCRRegionDisabled() throws {
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(StreamSettings())) as? [String: Any]
+        )
+        object.removeValue(forKey: "translationSecondRegionEnabled")
+        object.removeValue(forKey: "translationSecondRegion")
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+        let decoded = try JSONDecoder().decode(StreamSettings.self, from: legacyData)
+        XCTAssertFalse(decoded.translationSecondRegionEnabled)
+        XCTAssertEqual(decoded.translationSecondRegion, StreamSettings().translationSecondRegion)
+    }
+
 	func testVideoAccessUnitSplitsThreeAndFourByteAnnexBStartCodes() {
 		let bytes: [UInt8] = [
 			0, 0, 0, 1, 0x67, 0x64, 0,
