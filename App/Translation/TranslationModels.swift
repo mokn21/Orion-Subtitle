@@ -72,11 +72,26 @@ enum VideoCoordinateMapper {
     /// Maps Vision's normalized bottom-left rectangle to the displayed video.
     /// The video is aspect-fitted inside the supplied view, so unused area is
     /// treated as letterboxing and excluded from the returned rectangle.
-    static func displayRect(for visionRect: CGRect, in viewSize: CGSize, videoAspect: CGFloat = 16.0 / 9.0) -> CGRect {
+    static func displayRect(
+        for visionRect: CGRect,
+        in viewSize: CGSize,
+        videoAspect: CGFloat = 16.0 / 9.0,
+        mode: DisplayMode = .fit
+    ) -> CGRect {
         guard viewSize.width > 0, viewSize.height > 0, videoAspect > 0 else { return .zero }
-        let videoHeight = min(viewSize.height, viewSize.width / videoAspect)
+        let fittedHeight = viewSize.width / videoAspect
+        let videoHeight: CGFloat
+        switch mode {
+        case .fit:
+            videoHeight = min(viewSize.height, fittedHeight)
+        case .zoom:
+            videoHeight = max(viewSize.height, fittedHeight)
+        }
         let videoSize = CGSize(width: videoHeight * videoAspect, height: videoHeight)
-        let origin = CGPoint(x: (viewSize.width - videoSize.width) / 2, y: (viewSize.height - videoSize.height) / 2)
+        let origin = CGPoint(
+            x: (viewSize.width - videoSize.width) / 2,
+            y: (viewSize.height - videoSize.height) / 2
+        )
         return CGRect(
             x: origin.x + visionRect.minX * videoSize.width,
             y: origin.y + (1 - visionRect.maxY) * videoSize.height,
