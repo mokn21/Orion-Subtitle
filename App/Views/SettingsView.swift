@@ -56,6 +56,19 @@ struct StreamSettingsForm: View {
 		} footer: {
 				Text("يُستخدم مستشعر حركة iPad عندما لا تحتوي وحدة التحكم على مستشعرات حركة. اضغط Select وStart معًا لمدة ثانية أثناء البث لفتح القائمة.")
 		}
+        Section {
+            Toggle("تفعيل منطقة OCR ثانية مستقلة", isOn: $settings.translationSecondRegionEnabled)
+            if settings.translationSecondRegionEnabled {
+                RegionSlider(title: "موضع المنطقة الثانية أفقيًا", value: $settings.translationSecondRegion.x, range: 0...0.9)
+                RegionSlider(title: "موضع المنطقة الثانية عموديًا", value: $settings.translationSecondRegion.y, range: 0...0.9)
+                RegionSlider(title: "عرض المنطقة الثانية", value: $settings.translationSecondRegion.width, range: 0.1...1)
+                RegionSlider(title: "ارتفاع المنطقة الثانية", value: $settings.translationSecondRegion.height, range: 0.1...1)
+            }
+        } header: {
+            Text("منطقة OCR الثانية")
+        } footer: {
+            Text("معطّلة افتراضيًا. عند تفعيلها، تعالج منطقة مستقلة بالتوازي مع المنطقة الأولى.")
+        }
 	}
 }
 
