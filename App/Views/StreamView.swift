@@ -436,7 +436,7 @@ struct StreamView: View {
 				showRegionEditor = true
 			}
             if session.translationCoordinator.secondaryEnabled {
-                quickTool("منطقة ٢", icon: "crop.rotate") {
+                quickTool("منطقة ٢", icon: "viewfinder") {
                     showSecondRegionEditor = true
                 }
             }
@@ -577,7 +577,7 @@ struct StreamView: View {
 						}
 					quickTool("المنطقة", icon: "crop") { showRegionEditor = true }
                     if session.translationCoordinator.secondaryEnabled {
-                        quickTool("المنطقة ٢", icon: "crop.rotate") { showSecondRegionEditor = true }
+                        quickTool("المنطقة ٢", icon: "viewfinder") { showSecondRegionEditor = true }
                     }
 					quickTool("اختبار", icon: "checkmark.seal") { showTranslationDiagnostics = true }
 					quickTool("إيقاف العرض", icon: "stop.fill") {
