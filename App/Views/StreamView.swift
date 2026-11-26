@@ -130,6 +130,7 @@ struct StreamView: View {
             if let session {
                 CaptureRegionEditorView(
                     pixelBuffer: session.latestFrame,
+                    title: "منطقة OCR الثانية",
                     region: Binding(
                         get: { settingsStore.settings.translationSecondRegion },
                         set: {
