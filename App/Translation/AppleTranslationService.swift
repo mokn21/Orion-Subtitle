@@ -55,8 +55,8 @@ import Translation
 final class AppleTranslationBridge: TextTranslationService {
     struct PendingRequest {
         let id: UUID
-        let text: String
-        let continuation: CheckedContinuation<String, Error>
+        let texts: [String]
+        let continuation: CheckedContinuation<[String], Error>
     }
 
     let source = Locale.Language(identifier: "en")
@@ -95,20 +95,29 @@ final class AppleTranslationBridge: TextTranslationService {
     }
 
     func translate(_ text: String) async throws -> String {
+        guard let result = try await translateBatch([text]).first else {
+            throw TranslationError.failed("لم تُرجع الترجمة نتيجة.")
+        }
+        return result
+    }
+
+    func translateBatch(_ texts: [String]) async throws -> [String] {
         guard #available(iOS 18.0, *) else {
             throw TranslationError.unavailable("ترجمة Apple المخصصة تتطلب iPadOS 18 أو أحدث؛ التطبيق يبقى متوافقًا مع iPadOS 17.")
         }
-        if let availabilityFailure {
-            throw availabilityFailure
+        let cleanedTexts = texts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+        guard !cleanedTexts.isEmpty, cleanedTexts.allSatisfy({ !$0.isEmpty }) else {
+            throw TranslationError.failed("تحتوي دفعة الترجمة على نص فارغ.")
         }
+        if let availabilityFailure { throw availabilityFailure }
 
         let id = UUID()
         do {
-            return try await withThrowingTaskGroup(of: String.self) { group in
+            return try await withThrowingTaskGroup(of: [String].self) { group in
                 group.addTask { [weak self] in
                     guard let self else { throw TranslationError.failed("انتهت جلسة الترجمة.") }
                     try await self.waitUntilReady(id: id)
-                    return try await self.enqueueAndWait(id: id, text: text)
+                    return try await self.enqueueAndWait(id: id, texts: cleanedTexts)
                 }
                 group.addTask {
                     try await Task.sleep(for: .seconds(20))
@@ -128,13 +137,13 @@ final class AppleTranslationBridge: TextTranslationService {
         }
     }
 
-    private func enqueueAndWait(id: UUID, text: String) async throws -> String {
+    private func enqueueAndWait(id: UUID, texts: [String]) async throws -> [String] {
         try await withTaskCancellationHandler(operation: {
             try await withCheckedThrowingContinuation { continuation in
-                let request = PendingRequest(id: id, text: text, continuation: continuation)
+                let request = PendingRequest(id: id, texts: texts, continuation: continuation)
                 pendingRequests[id] = request
                 ledger.enqueue(id)
-                record(.requestEnqueued, message: "وصل طلب ترجمة إلى AsyncStream: \(text)", succeeded: true)
+                record(.requestEnqueued, message: "وصلت دفعة ترجمة من \\(texts.count) نصوص إلى AsyncStream.", succeeded: true)
                 requestContinuation.yield(request)
             }
         }, onCancel: {
@@ -278,24 +287,28 @@ final class AppleTranslationBridge: TextTranslationService {
                 // A duplicate stream item or an already completed request.
                 continue
             }
-            record(.requestConsumed, message: "استهلك العامل طلب ترجمة: \(request.text)", succeeded: true, details: "generation=\(generation)")
+            record(.requestConsumed, message: "استهلك العامل دفعة ترجمة من \\(request.texts.count) نصوص.", succeeded: true, details: "generation=\\(generation)")
 
             do {
-                record(.translateStarted, message: "تم استدعاء session.translate.", succeeded: nil)
-                let response = try await session.translate(request.text)
+                let requests = request.texts.enumerated().map { index, text in
+                    TranslationSession.Request(sourceText: text, clientIdentifier: String(index))
+                }
+                record(.translateStarted, message: "تم استدعاء session.translations لدفعة نصوص.", succeeded: nil)
+                let responses = try await session.translations(from: requests)
                 if Task.isCancelled || generation != sessionGeneration {
                     ledger.requeue(request.id)
                     requestContinuation.yield(request)
                     return
                 }
-                let translatedText = response.targetText.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !translatedText.isEmpty else {
-                    throw TranslationError.failed("أعاد Apple Translation نتيجة فارغة؛ لم تُعرض ترجمة وهمية.")
+                let translatedTexts = responses.map { $0.targetText.trimmingCharacters(in: .whitespacesAndNewlines) }
+                guard translatedTexts.count == request.texts.count,
+                      translatedTexts.allSatisfy({ !$0.isEmpty }) else {
+                    throw TranslationError.failed("أعاد Apple Translation دفعة ناقصة أو احتوت على نتيجة فارغة.")
                 }
                 if ledger.complete(request.id) {
                     pendingRequests.removeValue(forKey: request.id)
-                    request.continuation.resume(returning: translatedText)
-                    record(.translateFinished, message: "رجعت targetText بنتيجة غير فارغة.", succeeded: true)
+                    request.continuation.resume(returning: translatedTexts)
+                    record(.translateFinished, message: "اكتملت دفعة Apple Translation وعدد نتائجها \\(translatedTexts.count).", succeeded: true)
                 }
             } catch is CancellationError {
                 ledger.requeue(request.id)
@@ -304,7 +317,7 @@ final class AppleTranslationBridge: TextTranslationService {
             } catch {
                 _ = ledger.complete(request.id)
                 pendingRequests.removeValue(forKey: request.id)
-                recordFailure(error, phase: .translateFinished, message: "فشل session.translate.")
+                recordFailure(error, phase: .translateFinished, message: "فشلت دفعة session.translations.")
                 request.continuation.resume(throwing: TranslationError.failed(Self.arabicErrorMessage(for: error)))
             }
         }
