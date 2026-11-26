@@ -509,11 +509,11 @@ struct StreamView: View {
                                     ))
                                     .multilineTextAlignment(.center)
                                     .environment(\.layoutDirection, .rightToLeft)
-                                    .lineLimit(2)
-                                    .minimumScaleFactor(0.25)
-                                    .padding(1)
+                                    .lineLimit(1)
+                                    .allowsTightening(true)
+                                    .minimumScaleFactor(0.10)
                                     .foregroundStyle(translationColor(session.settings.translationTextColor))
-                                    .frame(width: max(1, frame.width), height: max(1, frame.height))
+                                    .frame(width: max(1, frame.width), height: max(1, frame.height), alignment: .center)
                             }
                             // Keep both the black cover and Arabic text inside the
                             // original OCR rectangle. Intrinsic Arabic width must
