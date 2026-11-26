@@ -9,6 +9,7 @@ struct StreamView: View {
 	let startInBlackMode: Bool
 
 	@Environment(SettingsStore.self) private var settingsStore
+	@Environment(TranslationHistoryStore.self) private var translationHistory
 	@Environment(\.dismiss) private var dismiss
 	@Environment(\.scenePhase) private var scenePhase
 		@State private var session: StreamSession?
@@ -213,7 +214,7 @@ struct StreamView: View {
 			return
 		}
 		log.notice("Starting Remote Play attempt \(attemptID.uuidString, privacy: .public) for \(console.name, privacy: .public)")
-				let session = StreamSession(console: console, settings: settingsStore.settings)
+				let session = StreamSession(console: console, settings: settingsStore.settings, historyStore: translationHistory)
 		if let orientation = interfaceOrientation {
 			session.input.interfaceOrientation = orientation
 		}
