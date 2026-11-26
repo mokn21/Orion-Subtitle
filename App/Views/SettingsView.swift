@@ -156,6 +156,19 @@ private struct TranslationSettingsForm: View {
 			RegionSlider(title: "عموديًا", value: $settings.translationRegion.y, range: 0...0.9)
 			RegionSlider(title: "العرض", value: $settings.translationRegion.width, range: 0.1...1)
 			RegionSlider(title: "الارتفاع", value: $settings.translationRegion.height, range: 0.1...1)
+
+            Divider()
+            Toggle("تفعيل منطقة OCR ثانية مستقلة", isOn: $settings.translationSecondRegionEnabled)
+            Text("المنطقة الثانية اختيارية ومعطلة افتراضيًا. تعمل بمسح OCR وذاكرة نتائج مستقلين عن المنطقة الأولى، مع مشاركة محرك الترجمة المحلي.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if settings.translationSecondRegionEnabled {
+                RegionSlider(title: "موضع المنطقة الثانية أفقيًا", value: $settings.translationSecondRegion.x, range: 0...0.9)
+                RegionSlider(title: "موضع المنطقة الثانية عموديًا", value: $settings.translationSecondRegion.y, range: 0...0.9)
+                RegionSlider(title: "عرض المنطقة الثانية", value: $settings.translationSecondRegion.width, range: 0.1...1)
+                RegionSlider(title: "ارتفاع المنطقة الثانية", value: $settings.translationSecondRegion.height, range: 0.1...1)
+            }
 			} header: {
 				Text("الترجمة")
 			} footer: {
