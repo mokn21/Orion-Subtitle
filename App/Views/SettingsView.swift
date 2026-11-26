@@ -155,8 +155,20 @@ private struct TranslationSettingsForm: View {
 				Text("منطقة الالتقاط — اسحب القيم لتحديد المستطيل داخل إطار Remote Play")
 			RegionSlider(title: "أفقيًا", value: $settings.translationRegion.x, range: 0...max(0, 1 - settings.translationRegion.width))
 			RegionSlider(title: "عموديًا", value: $settings.translationRegion.y, range: 0...max(0, 1 - settings.translationRegion.height))
-			RegionSlider(title: "العرض", value: $settings.translationRegion.width, range: 0.1...1)
-			RegionSlider(title: "الارتفاع", value: $settings.translationRegion.height, range: 0.1...1)
+			RegionSlider(title: "العرض", value: Binding(
+                get: { settings.translationRegion.width },
+                set: { width in
+                    settings.translationRegion.width = width
+                    settings.translationRegion.x = min(settings.translationRegion.x, 1 - width)
+                }
+            ), range: 0.1...1)
+			RegionSlider(title: "الارتفاع", value: Binding(
+                get: { settings.translationRegion.height },
+                set: { height in
+                    settings.translationRegion.height = height
+                    settings.translationRegion.y = min(settings.translationRegion.y, 1 - height)
+                }
+            ), range: 0.1...1)
 
             Divider()
             Toggle("تفعيل منطقة OCR ثانية مستقلة", isOn: $settings.translationSecondRegionEnabled)
@@ -167,8 +179,20 @@ private struct TranslationSettingsForm: View {
             if settings.translationSecondRegionEnabled {
                 RegionSlider(title: "موضع المنطقة الثانية أفقيًا", value: $settings.translationSecondRegion.x, range: 0...max(0, 1 - settings.translationSecondRegion.width))
                 RegionSlider(title: "موضع المنطقة الثانية عموديًا", value: $settings.translationSecondRegion.y, range: 0...max(0, 1 - settings.translationSecondRegion.height))
-                RegionSlider(title: "عرض المنطقة الثانية", value: $settings.translationSecondRegion.width, range: 0.1...1)
-                RegionSlider(title: "ارتفاع المنطقة الثانية", value: $settings.translationSecondRegion.height, range: 0.1...1)
+                RegionSlider(title: "عرض المنطقة الثانية", value: Binding(
+                    get: { settings.translationSecondRegion.width },
+                    set: { width in
+                        settings.translationSecondRegion.width = width
+                        settings.translationSecondRegion.x = min(settings.translationSecondRegion.x, 1 - width)
+                    }
+                ), range: 0.1...1)
+                RegionSlider(title: "ارتفاع المنطقة الثانية", value: Binding(
+                    get: { settings.translationSecondRegion.height },
+                    set: { height in
+                        settings.translationSecondRegion.height = height
+                        settings.translationSecondRegion.y = min(settings.translationSecondRegion.y, 1 - height)
+                    }
+                ), range: 0.1...1)
             }
 			} header: {
 				Text("الترجمة")
