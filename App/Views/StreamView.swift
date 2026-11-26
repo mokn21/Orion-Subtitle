@@ -534,7 +534,7 @@ struct StreamView: View {
                     ? (session.translationCoordinator.secondaryCoordinator?.recentEntries ?? [])
                     : [])
             let sortedEntries = allEntries.sorted { $0.createdAt > $1.createdAt }
-			VStack(spacing: 18) {
+			return VStack(spacing: 18) {
 					if let entry = sortedEntries.first {
 						Text(entry.translatedText)
 							.font(.system(size: session.settings.translationFontSize + 10, weight: .bold))
