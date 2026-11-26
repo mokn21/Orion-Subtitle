@@ -504,24 +504,21 @@ struct StreamView: View {
                                 RoundedRectangle(cornerRadius: 2).fill(Color.black)
                                 Text(entry.translatedText)
                                     .font(.system(
-                                        size: min(session.settings.translationFontSize, max(8, frame.height * 0.72)),
+                                        size: min(session.settings.translationFontSize, max(7, frame.height * 0.68)),
                                         weight: .semibold
                                     ))
                                     .multilineTextAlignment(.center)
                                     .environment(\.layoutDirection, .rightToLeft)
                                     .lineLimit(2)
-                                    .fixedSize(horizontal: true, vertical: true)
-                                    .minimumScaleFactor(0.35)
-                                    .padding(2)
+                                    .minimumScaleFactor(0.25)
+                                    .padding(1)
                                     .foregroundStyle(translationColor(session.settings.translationTextColor))
+                                    .frame(width: max(1, frame.width), height: max(1, frame.height))
                             }
-                            // Keep the cover aligned to the exact OCR box. A minimum
-                            // width/height would hide neighboring game elements and
-                            // move the translated text away from the source location.
-                            // Keep the same center as the source text, but let a
-                            // longer Arabic translation expand instead of shrinking
-                            // into the narrow width of a short English word.
-                            .frame(minWidth: max(1, frame.width), minHeight: max(1, frame.height))
+                            // Keep both the black cover and Arabic text inside the
+                            // original OCR rectangle. Intrinsic Arabic width must
+                            // never enlarge the cover across nearby game content.
+                            .frame(width: max(1, frame.width), height: max(1, frame.height))
                             .clipShape(RoundedRectangle(cornerRadius: 2))
                             .position(x: frame.midX, y: frame.midY)
 					}
