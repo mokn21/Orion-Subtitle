@@ -24,10 +24,10 @@ final class OCRService {
         let extent = fullImage.extent
         guard extent.width > 0, extent.height > 0 else { return nil }
         let cropRect = CGRect(
-            x: extent.minX + selectedRegion.x * extent.width,
-            y: extent.minY + selectedRegion.y * extent.height,
-            width: selectedRegion.width * extent.width,
-            height: selectedRegion.height * extent.height
+            x: extent.minX + CGFloat(selectedRegion.x) * extent.width,
+            y: extent.minY + CGFloat(selectedRegion.y) * extent.height,
+            width: CGFloat(selectedRegion.width) * extent.width,
+            height: CGFloat(selectedRegion.height) * extent.height
         ).intersection(extent)
         guard !cropRect.isNull, cropRect.width >= 1, cropRect.height >= 1 else { return nil }
 
@@ -55,10 +55,10 @@ final class OCRService {
             guard !text.isEmpty else { return nil }
             let local = observation.boundingBox
             let fullFrameBox = CGRect(
-                x: selectedRegion.x + local.minX * selectedRegion.width,
-                y: selectedRegion.y + local.minY * selectedRegion.height,
-                width: local.width * selectedRegion.width,
-                height: local.height * selectedRegion.height
+                x: CGFloat(selectedRegion.x) + local.minX * CGFloat(selectedRegion.width),
+                y: CGFloat(selectedRegion.y) + local.minY * CGFloat(selectedRegion.height),
+                width: local.width * CGFloat(selectedRegion.width),
+                height: local.height * CGFloat(selectedRegion.height)
             )
             return OCRTextObservation(text: text, boundingBox: fullFrameBox, confidence: candidate.confidence)
         }
