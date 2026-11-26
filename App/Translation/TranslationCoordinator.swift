@@ -229,7 +229,6 @@ final class TranslationCoordinator {
         }
         lastObservationFingerprint = fingerprint
 			lastDetectedText = result.text
-			visibleEntries = []
 			processedFrames += 1
 	        nextGeneration &+= 1
 	        let generation = nextGeneration
@@ -322,8 +321,15 @@ final class TranslationCoordinator {
             var updated = currentEntry
             updated.boundingBox = observations[bestIndex].boundingBox
             updated.confidence = observations[bestIndex].confidence
+            updated.lastSeenAt = Date()
             return updated
         }
+        pruneExpiredVisibleEntries()
+    }
+
+    private func pruneExpiredVisibleEntries() {
+        let now = Date()
+        visibleEntries.removeAll { now.timeIntervalSince($0.lastSeenAt) > 1.25 }
     }
 
     private func publish(_ translated: String, observation: OCRTextObservation, result: OCRResult, generation: UInt64) {
@@ -343,17 +349,45 @@ final class TranslationCoordinator {
                 displayedAt: ContinuousClock.now
             )
 		)
-		latestEntry = entry
-		visibleEntries.append(entry)
-		recentEntries = ([entry] + recentEntries).prefix(6).map { $0 }
-        historyStore?.append(
-            sourceText: entry.sourceText,
-            translatedText: entry.translatedText,
-            context: historyContext,
-            boundingBox: entry.boundingBox,
-            confidence: entry.confidence,
-            createdAt: entry.createdAt
-        )
+        let normalizedText = Self.normalize(entry.sourceText)
+        let nearestExistingIndex = visibleEntries.indices
+            .filter { Self.normalize(visibleEntries[$0].sourceText) == normalizedText }
+            .min { lhs, rhs in
+                let a = visibleEntries[lhs].boundingBox
+                let b = visibleEntries[rhs].boundingBox
+                let da = pow(a.midX - entry.boundingBox.midX, 2) + pow(a.midY - entry.boundingBox.midY, 2)
+                let db = pow(b.midX - entry.boundingBox.midX, 2) + pow(b.midY - entry.boundingBox.midY, 2)
+                return da < db
+            }
+
+        var isNewVisibleEntry = true
+        if let index = nearestExistingIndex {
+            let existing = visibleEntries[index].boundingBox
+            let distance = hypot(existing.midX - entry.boundingBox.midX, existing.midY - entry.boundingBox.midY)
+            if distance < 0.045 {
+                var updated = visibleEntries[index]
+                updated.boundingBox = entry.boundingBox
+                updated.confidence = entry.confidence
+                updated.lastSeenAt = Date()
+                visibleEntries[index] = updated
+                latestEntry = updated
+                isNewVisibleEntry = false
+            }
+        }
+
+        if isNewVisibleEntry {
+            latestEntry = entry
+            visibleEntries.append(entry)
+            recentEntries = ([entry] + recentEntries).prefix(6).map { $0 }
+            historyStore?.append(
+                sourceText: entry.sourceText,
+                translatedText: entry.translatedText,
+                context: historyContext,
+                boundingBox: entry.boundingBox,
+                confidence: entry.confidence,
+                createdAt: entry.createdAt
+            )
+        }
 	}
 
     private func storeCachedTranslation(_ translated: String, for key: String) {

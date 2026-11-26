@@ -123,6 +123,7 @@ struct TranslationEntry: Identifiable, Equatable {
     /// The original text position in Vision normalized coordinates.
     var boundingBox: CGRect
     var confidence: Float
+    var lastSeenAt = Date()
     let createdAt = Date()
     let metrics: LatencyMetrics
 }
