@@ -523,6 +523,8 @@ struct StreamView: View {
                             .position(x: frame.midX, y: frame.midY)
 					}
 					}
+				// Match MetalStreamView's full-screen coordinate space, including safe areas.
+				.ignoresSafeArea()
 				.clipped()
 				.allowsHitTesting(false)
 				}
