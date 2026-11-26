@@ -127,6 +127,28 @@ final class TranslationRequestLedgerTests: XCTestCase {
         XCTAssertEqual(decoded.translationSecondRegion, StreamSettings().translationSecondRegion)
     }
 
+
+    func testSecondOCRCoordinatorHasIndependentRegionAndLifecycle() throws {
+        let primary = TranslationCoordinator(
+            translator: UnavailableTranslationService(reason: "test")
+        )
+        primary.configureSecondary()
+        let secondary = try XCTUnwrap(primary.secondaryCoordinator)
+        XCTAssertFalse(primary === secondary)
+
+        primary.region = CaptureRegion(x: 0.05, y: 0.05, width: 0.4, height: 0.4)
+        secondary.region = CaptureRegion(x: 0.55, y: 0.5, width: 0.4, height: 0.4)
+        XCTAssertNotEqual(primary.region, secondary.region)
+
+        primary.secondaryEnabled = true
+        primary.start()
+        XCTAssertEqual(secondary.state, .running)
+        primary.pause()
+        XCTAssertEqual(secondary.state, .paused)
+        primary.stop()
+        XCTAssertEqual(secondary.state, .stopped)
+    }
+
 	func testVideoAccessUnitSplitsThreeAndFourByteAnnexBStartCodes() {
 		let bytes: [UInt8] = [
 			0, 0, 0, 1, 0x67, 0x64, 0,
