@@ -57,6 +57,23 @@ final class TranslationRequestLedgerTests: XCTestCase {
 		XCTAssertFalse(ledger.claim(id))
 	}
 
+    func testCompletedRequestHistoryRemainsBounded() {
+        var ledger = TranslationRequestLedger()
+        var ids: [UUID] = []
+
+        for _ in 0..<300 {
+            let id = UUID()
+            ids.append(id)
+            ledger.enqueue(id)
+            XCTAssertTrue(ledger.claim(id))
+            XCTAssertTrue(ledger.complete(id))
+        }
+
+        XCTAssertEqual(ledger.completed.count, 256)
+        XCTAssertFalse(ledger.completed.contains(ids[0]))
+        XCTAssertTrue(ledger.completed.contains(ids[299]))
+    }
+
 	func testVideoAccessUnitSplitsThreeAndFourByteAnnexBStartCodes() {
 		let bytes: [UInt8] = [
 			0, 0, 0, 1, 0x67, 0x64, 0,
