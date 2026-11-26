@@ -482,14 +482,12 @@ struct StreamView: View {
 									.font(.system(size: session.settings.translationFontSize, weight: .semibold))
 									.multilineTextAlignment(.center)
 									.environment(\.layoutDirection, .rightToLeft)
-								Text(entry.sourceText)
-									.font(.system(size: max(12, session.settings.translationFontSize * 0.45)))
-									.foregroundStyle(.white.opacity(0.7))
 							}
 							.foregroundStyle(translationColor(session.settings.translationTextColor))
 							.padding(.horizontal, 18)
 							.padding(.vertical, 10)
-							.background(translationColor(session.settings.translationBackgroundColor).opacity(session.settings.translationBackgroundOpacity), in: RoundedRectangle(cornerRadius: 14))
+							// Opaque black masks the original English pixels beneath the Arabic.
+							.background(Color.black, in: RoundedRectangle(cornerRadius: 8))
 							.frame(width: max(90, min(frame.width, geo.size.width - 24)))
 							.position(x: frame.midX, y: frame.midY)
 					}
