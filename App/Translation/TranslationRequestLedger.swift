@@ -7,6 +7,8 @@ struct TranslationRequestLedger {
     private(set) var pending: Set<UUID> = []
     private(set) var claimed: Set<UUID> = []
     private(set) var completed: Set<UUID> = []
+    private(set) var completedOrder: [UUID] = []
+    private let maximumRememberedCompletions = 256
 
     mutating func enqueue(_ id: UUID) {
         guard !completed.contains(id) else { return }
@@ -32,6 +34,13 @@ struct TranslationRequestLedger {
         pending.remove(id)
         claimed.remove(id)
         completed.insert(id)
+        completedOrder.append(id)
+        if completedOrder.count > maximumRememberedCompletions {
+            let expired = completedOrder.removeFirst(completedOrder.count - maximumRememberedCompletions)
+            for expiredID in expired {
+                completed.remove(expiredID)
+            }
+        }
         return true
     }
 }
