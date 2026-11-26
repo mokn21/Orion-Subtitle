@@ -68,11 +68,16 @@ final class TranslationCoordinator {
         self.ocr.sourceLanguage = "en-US"
 #if canImport(SwiftUI) && canImport(Translation)
         if #available(iOS 18.0, *) {
-            let bridge = AppleTranslationBridge()
+            if let translator {
+                self.appleTranslationBridge = translator as? AppleTranslationBridge
+                self.translator = translator
+            } else {
+                let bridge = AppleTranslationBridge()
                 self.appleTranslationBridge = bridge
                 // Prefer Apple's on-device Translation framework. Do not send
                 // recognized game text to an external proxy by default.
-                self.translator = translator ?? bridge
+                self.translator = bridge
+            }
         } else {
             self.appleTranslationBridge = nil
             self.translator = translator ?? DefaultTranslationService()
