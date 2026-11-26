@@ -2,6 +2,7 @@ import CoreVideo
 import Foundation
 import Observation
 
+@MainActor
 @Observable
 final class TranslationCoordinator {
     private(set) var state: TranslationState = .stopped
@@ -46,6 +47,8 @@ final class TranslationCoordinator {
     private let historyStore: TranslationHistoryStore?
     private let historyContext: String?
     private var ocrTask: Task<Void, Never>?
+    private var pendingOCRFrame: (pixelBuffer: CVPixelBuffer, capturedAt: ContinuousClock.Instant)?
+    private var ocrGeneration: UInt64 = 0
     private var translationTasks: [UInt64: Task<Void, Never>] = [:]
     private var lastSubmittedAt: ContinuousClock.Instant?
     private var lastObservationFingerprint = ""
@@ -105,8 +108,10 @@ final class TranslationCoordinator {
     }
 
 	func start() {
+        ocrGeneration &+= 1
         ocrTask?.cancel()
         ocrTask = nil
+        pendingOCRFrame = nil
         nextGeneration &+= 1
         translationTasks.values.forEach { $0.cancel() }
         translationTasks.removeAll()
@@ -119,15 +124,19 @@ final class TranslationCoordinator {
     }
 
     func pause() {
+        ocrGeneration &+= 1
         ocrTask?.cancel()
         ocrTask = nil
+        pendingOCRFrame = nil
         state = .paused
         secondaryCoordinator?.pause()
     }
 
     func stop() {
+        ocrGeneration &+= 1
         ocrTask?.cancel()
         ocrTask = nil
+        pendingOCRFrame = nil
         nextGeneration &+= 1
         translationTasks.values.forEach { $0.cancel() }
         translationTasks.removeAll()
@@ -154,18 +163,46 @@ final class TranslationCoordinator {
         }
         lastSubmittedAt = now
 
-        // Only OCR is replaced by a newer frame. A translation already in
-        // progress is allowed to finish; its generation controls visibility.
-        ocrTask?.cancel()
+        // Keep exactly one Vision request in flight. If frames arrive while
+        // it runs, retain only the newest frame instead of cancelling work
+        // that Vision may already be executing synchronously.
+        if ocrTask != nil {
+            pendingOCRFrame = (pixelBuffer, now)
+            skippedFrames += 1
+            return
+        }
+        startOCRWorker(pixelBuffer: pixelBuffer, capturedAt: now)
+    }
+
+    private func startOCRWorker(pixelBuffer: CVPixelBuffer, capturedAt: ContinuousClock.Instant) {
+        let generation = ocrGeneration
         let ocr = self.ocr
         ocrTask = Task { [weak self] in
             guard let self else { return }
-			guard let result = await ocr.recognize(pixelBuffer: pixelBuffer, capturedAt: now), !Task.isCancelled else {
-				self.ocrStatusMessage = "لم يُكتشف نص في آخر إطار."
-				return
-			}
-			self.ocrStatusMessage = "اكتشف OCR نصًا إنجليزيًا."
-			self.acceptOCR(result)
+            var frame = (pixelBuffer: pixelBuffer, capturedAt: capturedAt)
+
+            while !Task.isCancelled, self.ocrGeneration == generation {
+                let result = await ocr.recognize(
+                    pixelBuffer: frame.pixelBuffer,
+                    capturedAt: frame.capturedAt
+                )
+                guard !Task.isCancelled, self.ocrGeneration == generation else { return }
+
+                if let result {
+                    self.ocrStatusMessage = "اكتشف OCR نصًا إنجليزيًا."
+                    self.acceptOCR(result)
+                } else {
+                    self.ocrStatusMessage = "لم يُكتشف نص في آخر إطار."
+                }
+
+                guard let newestFrame = self.pendingOCRFrame else { break }
+                self.pendingOCRFrame = nil
+                frame = newestFrame
+            }
+
+            guard self.ocrGeneration == generation else { return }
+            self.pendingOCRFrame = nil
+            self.ocrTask = nil
         }
     }
 

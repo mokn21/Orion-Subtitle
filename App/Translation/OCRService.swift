@@ -19,7 +19,11 @@ final class OCRService {
 
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
         do {
+            try Task.checkCancellation()
             try handler.perform([request])
+            try Task.checkCancellation()
+        } catch is CancellationError {
+            return nil
         } catch {
             log.error("Vision OCR failed: \(String(describing: error), privacy: .public)")
             return nil

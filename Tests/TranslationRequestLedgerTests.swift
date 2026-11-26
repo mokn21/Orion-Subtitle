@@ -142,6 +142,7 @@ final class TranslationRequestLedgerTests: XCTestCase {
     }
 
 
+    @MainActor
     func testSecondOCRCoordinatorHasIndependentRegionAndLifecycle() throws {
         let primary = TranslationCoordinator(
             translator: ExternalAITranslationService()
