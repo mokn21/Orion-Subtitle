@@ -121,7 +121,7 @@ final class TranslationCoordinator {
 				return
 			}
 		// Do not queue a second Core ML/Apple translation while the previous one
-		// is still running. Keeping lastSourceText unchanged here lets the next
+		// is still running. Keeping the observation fingerprint unchanged here lets the next
 		// OCR frame retry the latest text without building an unbounded backlog.
 		guard translationTasks.isEmpty else {
 			skippedFrames += 1
@@ -172,7 +172,7 @@ final class TranslationCoordinator {
 					self.publish(translated, observation: observation, result: result, generation: generation)
 				} catch {
 					guard !Task.isCancelled else { return }
-					self.lastSourceText = ""
+					self.lastObservationFingerprint = ""
 					self.lastError = error.localizedDescription
 					self.translationStatusMessage = "تعذرت ترجمة نص مكاني: \(error.localizedDescription)"
 				}
