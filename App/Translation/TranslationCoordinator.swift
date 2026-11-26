@@ -30,7 +30,7 @@ final class TranslationCoordinator {
     private var ocrTask: Task<Void, Never>?
     private var translationTasks: [UInt64: Task<Void, Never>] = [:]
     private var lastSubmittedAt: ContinuousClock.Instant?
-    private var lastSourceText = ""
+    private var lastObservationFingerprint = ""
     private var nextGeneration: UInt64 = 0
     private var cache: [String: String] = [:]
 
@@ -81,7 +81,7 @@ final class TranslationCoordinator {
         translationTasks.values.forEach { $0.cancel() }
         translationTasks.removeAll()
 		state = .stopped
-		lastSourceText = ""
+		lastObservationFingerprint = ""
 		visibleEntries = []
 		ocrStatusMessage = "تم إيقاف OCR والترجمة."
 		translationStatusMessage = "تم إيقاف الترجمة."
@@ -127,12 +127,21 @@ final class TranslationCoordinator {
 			skippedFrames += 1
 			return
 		}
-			let normalizedTexts = observations.map { Self.normalize($0.text) }
-			guard normalizedTexts.contains(where: { $0 != lastSourceText }) else {
-				skippedFrames += 1
-				return
-			}
-			lastSourceText = normalizedTexts.last ?? ""
+            let fingerprint = observations.map { observation in
+                let box = observation.boundingBox
+                return [
+                    Self.normalize(observation.text),
+                    String(format: "%.4f", box.minX),
+                    String(format: "%.4f", box.minY),
+                    String(format: "%.4f", box.width),
+                    String(format: "%.4f", box.height)
+                ].joined(separator: "|")
+            }.joined(separator: "\u{1F}")
+            guard fingerprint != lastObservationFingerprint else {
+                skippedFrames += 1
+                return
+            }
+            lastObservationFingerprint = fingerprint
 			lastDetectedText = result.text
 			visibleEntries = []
 			processedFrames += 1
