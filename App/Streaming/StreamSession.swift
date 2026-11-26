@@ -86,6 +86,9 @@ final class StreamSession {
 		self.translationCoordinator.region = settings.translationRegion
 		self.translationCoordinator.sourceLanguage = settings.translationSourceLanguage
 		self.translationCoordinator.minimumFrameInterval = .milliseconds(settings.translationIntervalMs)
+        self.translationCoordinator.configureSecondary(historyContext: "\(console.name) — المنطقة الثانية")
+        self.translationCoordinator.secondaryCoordinator?.region = settings.translationSecondRegion
+        self.translationCoordinator.secondaryEnabled = settings.translationSecondRegionEnabled
 	}
 
 	deinit {
@@ -327,6 +330,8 @@ final class StreamSession {
 		translationCoordinator.region = new.translationRegion
 		translationCoordinator.sourceLanguage = new.translationSourceLanguage
 		translationCoordinator.minimumFrameInterval = .milliseconds(new.translationIntervalMs)
+        translationCoordinator.secondaryCoordinator?.region = new.translationSecondRegion
+        translationCoordinator.secondaryEnabled = new.translationSecondRegionEnabled
 		input.selectIsTouchpad = new.selectIsTouchpad
 		input.rumble.enabled = new.rumble
 		renderer?.setDisplayMode(new.displayMode)
