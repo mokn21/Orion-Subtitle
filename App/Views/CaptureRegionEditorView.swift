@@ -14,7 +14,7 @@ struct CaptureRegionEditorView: View {
     @State private var moveStart: CaptureRegion?
     @State private var resizeStart: CaptureRegion?
 
-    init(pixelBuffer: CVPixelBuffer?, region: Binding<CaptureRegion>, title: String = "منطقة OCR") {
+    init(pixelBuffer: CVPixelBuffer?, title: String = "منطقة OCR", region: Binding<CaptureRegion>) {
         self.pixelBuffer = pixelBuffer
         self.title = title
         self._region = region
