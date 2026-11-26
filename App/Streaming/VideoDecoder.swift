@@ -153,7 +153,7 @@ final class VideoDecoder {
 		if let session, VTDecompressionSessionCanAcceptFormatDescription(session, formatDescription: newFormat) {
 			format = newFormat
 		} else {
-			invalidate()
+			invalidateLocked()
 			format = newFormat
 		}
 		dimensions = CMVideoFormatDescriptionGetDimensions(newFormat)
