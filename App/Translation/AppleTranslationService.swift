@@ -254,10 +254,13 @@ final class AppleTranslationBridge: TextTranslationService {
             return
         }
 
-        if session.isReady {
-            statusMessage = "نماذج ترجمة English إلى العربية مثبتة وجاهزة."
-        } else {
-            guard session.canRequestDownloads else {
+        var requiresPreparation = true
+        if #available(iOS 26.0, *) {
+            let ready = await session.isReady
+            requiresPreparation = !ready
+            if ready {
+                statusMessage = "نماذج ترجمة English إلى العربية مثبتة وجاهزة."
+            } else if !session.canRequestDownloads {
                 let error = TranslationError.unavailable("نماذج الترجمة غير مثبتة، وهذه الجلسة لا تستطيع طلب تنزيلها.")
                 availabilityFailure = error
                 statusMessage = error.localizedDescription
@@ -266,16 +269,20 @@ final class AppleTranslationBridge: TextTranslationService {
                 recordFailure(error, phase: .preparationStarted, message: "الجلسة لا تسمح بطلب تنزيل نماذج اللغة.")
                 return
             }
+        }
 
+        if requiresPreparation {
             do {
                 statusMessage = "جارٍ طلب تنزيل نماذج English إلى العربية…"
                 record(.preparationStarted, message: "بدأ prepareTranslation لتنزيل نموذج اللغة.", succeeded: nil)
                 try await session.prepareTranslation()
                 guard generation == sessionGeneration, !Task.isCancelled else { return }
-                guard session.isReady else {
-                    throw TranslationError.failed("انتهى تجهيز نماذج الترجمة لكن الجلسة لم تصبح جاهزة.")
+                if #available(iOS 26.0, *) {
+                    guard await session.isReady else {
+                        throw TranslationError.failed("انتهى تجهيز نماذج الترجمة لكن الجلسة لم تصبح جاهزة.")
+                    }
                 }
-                record(.preparationFinished, message: "انتهى prepareTranslation وأصبحت session.isReady صحيحة.", succeeded: true)
+                record(.preparationFinished, message: "انتهى prepareTranslation بنجاح وأصبحت الجلسة جاهزة.", succeeded: true)
                 statusMessage = "تم تجهيز نماذج English إلى العربية وأصبحت جاهزة."
             } catch {
                 guard generation == sessionGeneration, !Task.isCancelled else { return }
