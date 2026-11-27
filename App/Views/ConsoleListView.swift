@@ -45,6 +45,7 @@ struct ConsoleListView: View {
             }
         }
         .tint(OrionPalette.olive)
+        .environment(\.layoutDirection, Locale.current.language.languageCode?.identifier == "ar" ? .rightToLeft : .leftToRight)
         .onAppear { monitor.sync(with: store.consoles); discovery.start() }
         .onChange(of: store.consoles) { _, consoles in monitor.sync(with: consoles) }
         .onChange(of: playing) { _, playing in

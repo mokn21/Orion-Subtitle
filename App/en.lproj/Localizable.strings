@@ -117,3 +117,8 @@
 "يُستخدم مستشعر حركة iPad عندما لا تحتوي وحدة التحكم على مستشعرات حركة. اضغط Select وStart معًا لمدة ثانية أثناء البث لفتح القائمة." = "The iPad motion sensor is used when the controller has no motion sensors. Hold Select and Start together for one second while streaming to open the menu.";
 "يُحفظ سجل آخر 1000 ترجمة محليًا على iPad. يمكنك حذف السجل من داخله." = "The latest 1,000 translations are saved locally on the iPad. You can clear the history from its screen.";
 "يحتوي التقرير على طراز iPad وتفاصيل الشاشة والإعدادات وسجلات التطبيق منذ فتحه. تُحذف عناوين IP والمفاتيح ومعرّفات الحساب وأسماء الأجهزة. شاركه قبل إغلاق التطبيق حتى تغطي السجلات المشكلة." = "The report includes the iPad model, display details, settings, and app logs since launch. IP addresses, keys, account identifiers, and console names are removed. Share it before closing the app so the logs include the issue.";
+"Find it on the PS5 under Settings › System › System Software › Console Information." = "Find the IP address on the PS5 under Settings › System › System Software › Console Information.";
+"The PS5 needs to be on, or in rest mode with Remote Play enabled, and on the same Wi-Fi." = "The PS5 must be on or in rest mode with Remote Play enabled, and connected to the same Wi-Fi.";
+"On" = "On";
+"Rest mode" = "Rest mode";
+"Unknown" = "Unknown";

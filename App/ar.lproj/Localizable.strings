@@ -44,3 +44,8 @@
 "Rumble" = "اهتزاز";
 "Phone gyro for motion controls" = "مستشعر حركة iPad للتحكم الحركي";
 "Select button is touchpad click" = "زر Select ينفذ نقرة لوحة اللمس";
+"Find it on the PS5 under Settings › System › System Software › Console Information." = "ستجد عنوان IP في PS5 ضمن الإعدادات ← النظام ← برنامج النظام ← معلومات الجهاز.";
+"The PS5 needs to be on, or in rest mode with Remote Play enabled, and on the same Wi-Fi." = "يجب أن يكون PS5 قيد التشغيل أو في وضع الاستعداد مع تفعيل اللعب عن بُعد، وعلى شبكة Wi‑Fi نفسها.";
+"On" = "قيد التشغيل";
+"Rest mode" = "وضع الاستعداد";
+"Unknown" = "غير معروف";

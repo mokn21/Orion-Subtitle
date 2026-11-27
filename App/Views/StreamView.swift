@@ -72,6 +72,7 @@ struct StreamView: View {
 		.statusBarHidden()
 		.persistentSystemOverlays(.hidden)
 		.defersSystemGestures(on: .all)
+        .preferredColorScheme(startInControlMode ? nil : .dark)
 		// The session itself starts from updateFolded, once we know we're on a usable screen
 		.onAppear {
 			isViewVisible = true

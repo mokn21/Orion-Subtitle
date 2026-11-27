@@ -109,17 +109,17 @@ struct AddConsoleView: View {
 		} header: {
 			Text("Console")
 		} footer: {
-			Text(manualEntry
+			Text(LocalizedStringKey(manualEntry
 				? "Find it on the PS5 under Settings › System › System Software › Console Information."
-				: "The PS5 needs to be on, or in rest mode with Remote Play enabled, and on the same Wi-Fi.")
+				: "The PS5 needs to be on, or in rest mode with Remote Play enabled, and on the same Wi-Fi."))
 		}
 	}
 
 	private func stateText(_ console: DiscoveredConsole) -> String {
 		switch console.state {
-		case .ready: "On"
-		case .standby: "Rest mode"
-		case .unknown: "Unknown"
+		case .ready: String(localized: "On")
+		case .standby: String(localized: "Rest mode")
+		case .unknown: String(localized: "Unknown")
 		}
 	}
 
