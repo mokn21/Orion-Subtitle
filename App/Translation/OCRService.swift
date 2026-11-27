@@ -4,6 +4,7 @@ import Foundation
 import Vision
 
 final class OCRService {
+    private static let colorSamplingContext = CIContext(options: [.cacheIntermediates: false])
     var recognitionLevel: VNRequestTextRecognitionLevel = .accurate
     var region: CaptureRegion = .fullScreen
     var sourceLanguage = "en-US"
@@ -67,15 +68,38 @@ final class OCRService {
                   local.width <= 0.95, local.height <= 0.30 else { return nil }
             // Crop coordinates are converted back to the original frame.
             // The overlay must never use crop-relative or mirrored coordinates.
-            let fullFrameBox = OCRCoordinateMapper.fullFrameRect(
-                for: local,
-                in: selectedRegion
-            )
-            return OCRTextObservation(text: text, boundingBox: fullFrameBox, confidence: candidate.confidence)
+            let fullFrameBox = OCRCoordinateMapper.fullFrameRect(for: local, in: selectedRegion)
+            let sampledBackground = Self.sampleSurroundingColor(in: fullImage, normalizedBox: fullFrameBox, extent: extent)
+            return OCRTextObservation(text: text, boundingBox: fullFrameBox, confidence: candidate.confidence, backgroundColorHex: sampledBackground)
         }
         guard !observations.isEmpty else { return nil }
         return OCRResult(observations: observations, capturedAt: capturedAt, startedAt: startedAt, finishedAt: ContinuousClock.now)
     }
+    private static func sampleSurroundingColor(in image: CIImage, normalizedBox: CGRect, extent: CGRect) -> String {
+        let box = CGRect(x: extent.minX + normalizedBox.minX * extent.width, y: extent.minY + normalizedBox.minY * extent.height, width: normalizedBox.width * extent.width, height: normalizedBox.height * extent.height).intersection(extent)
+        guard !box.isNull, box.width > 2, box.height > 2 else { return "#000000" }
+        let band = max(2, min(box.height * 0.22, extent.height * 0.012))
+        let regions = [
+            CGRect(x: box.minX, y: box.maxY, width: box.width, height: band),
+            CGRect(x: box.minX, y: box.minY - band, width: box.width, height: band),
+            CGRect(x: box.minX - band, y: box.minY, width: band, height: box.height),
+            CGRect(x: box.maxX, y: box.minY, width: band, height: box.height)
+        ].map { $0.intersection(extent) }.filter { !$0.isNull && $0.width >= 1 && $0.height >= 1 }
+        var samples: [(Double, Double, Double)] = []
+        for rect in regions {
+            let average = image.applyingFilter("CIAreaAverage", parameters: [kCIInputExtentKey: CIVector(cgRect: rect)])
+            var pixel = [UInt8](repeating: 0, count: 4)
+            pixel.withUnsafeMutableBytes { buffer in
+                guard let address = buffer.baseAddress else { return }
+                Self.colorSamplingContext.render(average, toBitmap: address, rowBytes: 4, bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .RGBA8, colorSpace: CGColorSpaceCreateDeviceRGB())
+            }
+            samples.append((Double(pixel[0]), Double(pixel[1]), Double(pixel[2])))
+        }
+        guard !samples.isEmpty else { return "#000000" }
+        let count = Double(samples.count)
+        return String(format: "#%02X%02X%02X", Int(samples.reduce(0) { $0 + $1.0 } / count), Int(samples.reduce(0) { $0 + $1.1 } / count), Int(samples.reduce(0) { $0 + $1.2 } / count))
+    }
+
 }
 
 protocol TextTranslationService {
