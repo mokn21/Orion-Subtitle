@@ -25,7 +25,6 @@ struct OrionSubtitlesApp: App {
 				.environment(settings)
 				.environment(translationHistory)
 				.environment(tvLinkPublisher)
-				.preferredColorScheme(.dark)
 				.background {
 					// Track the window size for the streaming layout.
 					GeometryReader { geo in

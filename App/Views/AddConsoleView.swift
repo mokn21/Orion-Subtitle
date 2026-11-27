@@ -39,12 +39,12 @@ struct AddConsoleView: View {
 			.navigationTitle("Add console")
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
-				ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+				ToolbarItem(placement: .cancellationAction) { Button("إلغاء") { dismiss() } }
 				ToolbarItem(placement: .confirmationAction) {
 					if registering {
 						ProgressView()
 					} else {
-						Button("Link") { Task { await register() } }
+						Button("ربط") { Task { await register() } }
 							.disabled(!canSubmit)
 					}
 				}

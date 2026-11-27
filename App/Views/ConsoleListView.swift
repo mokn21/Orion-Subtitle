@@ -1,18 +1,7 @@
 import SwiftUI
 
-enum OrionPalette {
-    static let background = Color(red: 0.098, green: 0.106, blue: 0.094)
-    static let panel = Color(red: 0.169, green: 0.180, blue: 0.153)
-    static let panelAlt = Color(red: 0.133, green: 0.145, blue: 0.122)
-    static let cream = Color(red: 0.973, green: 0.953, blue: 0.851)
-    static let muted = Color(red: 0.804, green: 0.780, blue: 0.651)
-    static let olive = Color(red: 0.725, green: 0.698, blue: 0.541)
-    static let stroke = Color(red: 0.314, green: 0.294, blue: 0.220)
-}
-
 struct ConsoleListView: View {
     @Environment(ConsoleStore.self) private var store
-    @Environment(SettingsStore.self) private var settings
     @State private var monitor = HostMonitor()
     @State private var discovery = LANDiscovery()
     @State private var showingAdd = false
@@ -24,63 +13,29 @@ struct ConsoleListView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    header
-                    TranslationModesView(
-                        liveAction: { startFirstConsole(black: false, controlOnly: false) },
-                        blackAction: { startFirstConsole(black: true, controlOnly: false) },
-                        controlAction: { startFirstConsole(black: false, controlOnly: true) }
-                    )
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("أجهزة PlayStation").font(.title2.bold()).foregroundStyle(OrionPalette.cream)
-                            Text("\(store.consoles.count) أجهزة مرتبطة").font(.caption).foregroundStyle(OrionPalette.muted)
-                        }
-                        Spacer()
-                        Button { showingAdd = true } label: {
-                            Label("إضافة جهاز", systemImage: "plus")
-                                .font(.subheadline.weight(.semibold))
-                                .padding(.horizontal, 14).padding(.vertical, 10)
-                                .background(OrionPalette.olive, in: Capsule())
-                                .foregroundStyle(OrionPalette.background)
-                        }.buttonStyle(.plain)
+            GeometryReader { geometry in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 26) {
+                        header
+                        welcomePanel
+                        TranslationModesView(
+                            liveAction: { startFirstConsole(black: false, controlOnly: false) },
+                            blackAction: { startFirstConsole(black: true, controlOnly: false) },
+                            controlAction: { startFirstConsole(black: false, controlOnly: true) }
+                        )
+                        consoleSection
+                        footer
                     }
-                    if store.consoles.isEmpty {
-                        emptyState
-                    } else {
-                        VStack(spacing: 12) {
-                            ForEach(store.consoles) { console in
-                                ConsoleRow(
-                                    console: console,
-                                    status: monitor.statuses[console.id],
-                                    waking: waking == console.id,
-                                    play: { connect(console) },
-                                    wake: { wake(console) }
-                                )
-                            }
-                        }
-                    }
-                    HStack {
-                        Label("ترجمة محلية على الجهاز", systemImage: "lock.shield")
-                        Spacer()
-                        Text("ORION • 2026")
-                    }
-                    .font(.caption2).foregroundStyle(OrionPalette.muted)
-                    .padding(.top, 4)
+                    .padding(.horizontal, 26)
+                    .padding(.top, 24)
+                    .padding(.bottom, 40)
+                    .frame(maxWidth: 1180)
+                    .frame(maxWidth: .infinity)
+                    .frame(minHeight: geometry.size.height, alignment: .top)
                 }
-                .padding(.horizontal, 24).padding(.top, 22).padding(.bottom, 36)
-                .frame(maxWidth: 980).frame(maxWidth: .infinity)
+                .background(OrionPalette.background.ignoresSafeArea())
             }
-            .background(OrionPalette.background.ignoresSafeArea())
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button { showingSettings = true } label: { Image(systemName: "gearshape").foregroundStyle(OrionPalette.cream) }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingAdd = true } label: { Image(systemName: "plus").foregroundStyle(OrionPalette.cream) }
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $showingAdd, onDismiss: { if playing == nil { discovery.start() } }) {
                 AddConsoleView().onAppear { discovery.stop() }
             }
@@ -90,7 +45,6 @@ struct ConsoleListView: View {
             }
         }
         .tint(OrionPalette.olive)
-        .preferredColorScheme(.dark)
         .onAppear { monitor.sync(with: store.consoles); discovery.start() }
         .onChange(of: store.consoles) { _, consoles in monitor.sync(with: consoles) }
         .onChange(of: playing) { _, playing in
@@ -116,36 +70,151 @@ struct ConsoleListView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 14) {
             ZStack {
-                RoundedRectangle(cornerRadius: 20).fill(OrionPalette.panelAlt)
-                Image(systemName: "captions.bubble.fill").font(.system(size: 34, weight: .medium)).foregroundStyle(OrionPalette.cream)
-                Image(systemName: "sparkle").font(.system(size: 13, weight: .bold)).foregroundStyle(OrionPalette.olive).offset(x: 22, y: -23)
+                RoundedRectangle(cornerRadius: 18, style: .continuous).fill(OrionPalette.olive)
+                Image(systemName: "captions.bubble.fill")
+                    .font(.system(size: 29, weight: .semibold))
+                    .foregroundStyle(OrionPalette.buttonText)
+                Image(systemName: "sparkle")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(OrionPalette.buttonText)
+                    .offset(x: 21, y: -20)
             }
-            .frame(width: 72, height: 72)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("ORION").font(.system(size: 27, weight: .bold, design: .rounded)).tracking(3).foregroundStyle(OrionPalette.cream)
-                Text("SUBTITLES").font(.system(size: 11, weight: .semibold)).tracking(3).foregroundStyle(OrionPalette.olive)
-                Text("ترجمتك أقرب إلى لحظتك").font(.caption).foregroundStyle(OrionPalette.muted)
+            .frame(width: 62, height: 62)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("ORION").font(.system(size: 25, weight: .heavy, design: .rounded)).tracking(2.4).foregroundStyle(OrionPalette.cream)
+                Text("SUBTITLES").font(.system(size: 10, weight: .bold)).tracking(3.2).foregroundStyle(OrionPalette.muted)
             }
             Spacer()
-            Image(systemName: "sparkles").font(.title2).foregroundStyle(OrionPalette.olive.opacity(0.8))
+            Button { showingSettings = true } label: {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(OrionPalette.cream)
+                    .frame(width: 48, height: 48)
+                    .background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 15, style: .continuous).stroke(OrionPalette.stroke, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("الإعدادات")
         }
-        .padding(18)
-        .background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 22))
-        .overlay(RoundedRectangle(cornerRadius: 22).stroke(OrionPalette.stroke, lineWidth: 1))
+        .environment(\.layoutDirection, .leftToRight)
+    }
+
+    private var welcomePanel: some View {
+        HStack(spacing: 22) {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("YOUR GAME. YOUR LANGUAGE.")
+                    .font(.system(size: 10, weight: .bold)).tracking(2.1).foregroundStyle(OrionPalette.muted)
+                Text("ترجم لحظتك،\nوعِش اللعبة.")
+                    .font(.system(size: 30, weight: .bold, design: .rounded))
+                    .foregroundStyle(OrionPalette.cream)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("ترجمة فورية لنصوص ألعابك، مع تحكم كامل في طريقة العرض.")
+                    .font(.subheadline).foregroundStyle(OrionPalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button { startFirstConsole(black: false, controlOnly: false) } label: {
+                    Label("ابدأ اللعب", systemImage: "play.fill")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(OrionPalette.buttonText)
+                        .padding(.horizontal, 18).padding(.vertical, 12)
+                        .background(OrionPalette.olive, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer(minLength: 0)
+            ZStack {
+                RoundedRectangle(cornerRadius: 26, style: .continuous).fill(OrionPalette.panelAlt).frame(width: 190, height: 150)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(OrionPalette.olive.opacity(0.55), lineWidth: 1.2)
+                    .frame(width: 154, height: 112).rotationEffect(.degrees(-7))
+                VStack(spacing: 8) {
+                    HStack(spacing: 7) {
+                        Text("EN")
+                        Image(systemName: "arrow.left.arrow.right")
+                        Text("AR")
+                    }
+                    .font(.system(size: 13, weight: .heavy, design: .rounded)).foregroundStyle(OrionPalette.olive)
+                    Capsule().fill(OrionPalette.stroke.opacity(0.65)).frame(width: 102, height: 5)
+                    Capsule().fill(OrionPalette.stroke.opacity(0.35)).frame(width: 76, height: 5)
+                    Text("Press to continue").font(.system(size: 9, weight: .medium)).foregroundStyle(OrionPalette.muted)
+                    Text("اضغط للمتابعة").font(.system(size: 11, weight: .bold)).foregroundStyle(OrionPalette.cream)
+                }
+            }
+            .accessibilityHidden(true)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(OrionPalette.stroke, lineWidth: 1))
+    }
+
+    private var consoleSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("أجهزتك").font(.title2.weight(.bold)).foregroundStyle(OrionPalette.cream)
+                    Text(store.consoles.isEmpty ? "اربط جهاز PlayStation للبدء" : "\(store.consoles.count) أجهزة مرتبطة")
+                        .font(.caption).foregroundStyle(OrionPalette.muted)
+                }
+                Spacer()
+                Button { showingAdd = true } label: {
+                    Label("إضافة جهاز", systemImage: "plus")
+                        .font(.subheadline.weight(.bold)).foregroundStyle(OrionPalette.buttonText)
+                        .padding(.horizontal, 15).padding(.vertical, 11)
+                        .background(OrionPalette.olive, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            if store.consoles.isEmpty {
+                emptyState
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 310), spacing: 14)], spacing: 14) {
+                    ForEach(store.consoles) { console in
+                        ConsoleRow(
+                            console: console,
+                            status: monitor.statuses[console.id],
+                            waking: waking == console.id,
+                            play: { connect(console) },
+                            wake: { wake(console) }
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "playstation.logo").font(.system(size: 36)).foregroundStyle(OrionPalette.olive)
-            Text("لم تتم إضافة جهاز بعد").font(.headline).foregroundStyle(OrionPalette.cream)
-            Text("اربط جهاز PS5 لبدء Remote Play والترجمة المباشرة.")
-                .font(.subheadline).multilineTextAlignment(.center).foregroundStyle(OrionPalette.muted)
-            Button("ربط جهاز PlayStation") { showingAdd = true }.buttonStyle(.borderedProminent).tint(OrionPalette.olive)
+        HStack(spacing: 18) {
+            Image(systemName: "gamecontroller.fill")
+                .font(.system(size: 28)).foregroundStyle(OrionPalette.olive)
+                .frame(width: 58, height: 58)
+                .background(OrionPalette.panelAlt, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            VStack(alignment: .leading, spacing: 5) {
+                Text("لا توجد أجهزة مرتبطة بعد").font(.headline).foregroundStyle(OrionPalette.cream)
+                Text("أضف جهاز PS5 على شبكة Wi-Fi نفسها لبدء Remote Play.")
+                    .font(.subheadline).foregroundStyle(OrionPalette.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Button("ربط جهاز") { showingAdd = true }
+                .font(.subheadline.weight(.bold)).foregroundStyle(OrionPalette.buttonText)
+                .padding(.horizontal, 15).padding(.vertical, 10)
+                .background(OrionPalette.olive, in: Capsule()).buttonStyle(.plain)
         }
-        .frame(maxWidth: .infinity).padding(28)
-        .background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 20))
+        .padding(18)
+        .background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(OrionPalette.stroke, lineWidth: 1))
+    }
+
+    private var footer: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "lock.shield")
+            Text("معالجة محلية • خصوصيتك أولًا")
+            Spacer()
+            Text("ORION").tracking(2)
+        }
+        .font(.caption2.weight(.medium)).foregroundStyle(OrionPalette.muted).padding(.top, 4)
     }
 
     private func connect(_ console: Console) { start(console, black: false, controlOnly: false) }
@@ -179,27 +248,29 @@ private struct ConsoleRow: View {
     let wake: () -> Void
 
     var body: some View {
-        HStack(spacing: 14) {
-            Image(systemName: "playstation.logo").font(.title2).foregroundStyle(OrionPalette.cream)
-                .frame(width: 48, height: 48).background(OrionPalette.panelAlt, in: RoundedRectangle(cornerRadius: 14))
+        HStack(spacing: 13) {
+            Image(systemName: "playstation.logo")
+                .font(.system(size: 22, weight: .medium)).foregroundStyle(OrionPalette.cream)
+                .frame(width: 48, height: 48)
+                .background(OrionPalette.panelAlt, in: RoundedRectangle(cornerRadius: 15, style: .continuous))
             VStack(alignment: .leading, spacing: 4) {
                 Text(console.name).font(.headline).foregroundStyle(OrionPalette.cream)
-                Text(console.host).font(.caption).foregroundStyle(OrionPalette.muted)
+                Text(console.host).font(.caption.monospaced()).foregroundStyle(OrionPalette.muted)
                 statusLabel
             }
-            Spacer()
-            if waking { ProgressView().tint(OrionPalette.olive) }
-            else if status?.state == .standby {
+            Spacer(minLength: 4)
+            if waking {
+                ProgressView().tint(OrionPalette.olive)
+            } else if status?.state == .standby {
                 Button("إيقاظ", action: wake).buttonStyle(.bordered).tint(OrionPalette.olive)
             } else {
                 Button("تشغيل", action: play).buttonStyle(.borderedProminent).tint(OrionPalette.olive)
                     .disabled(status?.state != .ready && status != nil)
             }
         }
-        .padding(16)
-        .background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(OrionPalette.stroke, lineWidth: 1))
-        .environment(\.layoutDirection, .rightToLeft)
+        .padding(16).frame(maxWidth: .infinity, minHeight: 96)
+        .background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 21, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 21, style: .continuous).stroke(OrionPalette.stroke, lineWidth: 1))
     }
 
     @ViewBuilder private var statusLabel: some View {
@@ -210,7 +281,8 @@ private struct ConsoleRow: View {
         case .standby:
             Label("وضع الاستعداد", systemImage: "moon.fill").font(.caption2).foregroundStyle(OrionPalette.olive)
         default:
-            Label(waking ? "جارٍ الإيقاظ…" : "غير متصل", systemImage: "circle").font(.caption2).foregroundStyle(OrionPalette.muted)
+            Label(waking ? "جارٍ الإيقاظ…" : "غير متصل", systemImage: "circle")
+                .font(.caption2).foregroundStyle(OrionPalette.muted)
         }
     }
 }

@@ -75,23 +75,6 @@ struct SettingsView: View {
 					StreamSettingsForm(settings: $store.settings)
 					TranslationSettingsForm(settings: $store.settings)
 
-                Section("التلفاز") {
-                    Button {
-                        showTVLinkSetup = true
-                    } label: {
-                        HStack {
-                            Label("Orion TV Mode", systemImage: "tv")
-                            Spacer()
-                            Text(tvLinkPublisher.isConnected ? "متصل" : "إعداد الربط")
-                                .font(.footnote)
-                                .foregroundStyle(tvLinkPublisher.isConnected ? .green : .secondary)
-                        }
-                    }
-                    Text("اربط iPad بتطبيق Orion TV لإرسال الترجمات ومواقعها إلى التلفاز.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
-
                 Section {
                     NavigationLink {
                         TranslationHistoryView()
@@ -125,7 +108,7 @@ struct SettingsView: View {
 				}
 			}
 				 .scrollContentBackground(.hidden)
-            .background(OrionPalette.background)
+            .background(OrionPalette.background.ignoresSafeArea())
             .listRowBackground(OrionPalette.panel)
             .tint(OrionPalette.olive)
 			.navigationTitle("الإعدادات")
@@ -275,6 +258,10 @@ private struct TranslationHistoryView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(OrionPalette.background.ignoresSafeArea())
+        .listRowBackground(OrionPalette.panel)
+        .tint(OrionPalette.olive)
         .navigationTitle("سجل الترجمات")
         .toolbar {
             if !history.entries.isEmpty {

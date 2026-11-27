@@ -5,54 +5,65 @@ struct TranslationModesView: View {
     let blackAction: () -> Void
     let controlAction: () -> Void
 
-    @Environment(TVLinkPublisher.self) private var tvLinkPublisher
-    @State private var showingTVSetup = false
-    private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+    private let columns = [
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14),
+        GridItem(.flexible(), spacing: 14)
+    ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 15) {
             VStack(alignment: .leading, spacing: 5) {
-                Text("طرق الترجمة").font(.title2.bold()).foregroundStyle(OrionPalette.cream)
-                Text("اختر طريقة تشغيل Orion حسب الشاشة التي تريد استخدامها.")
+                Text("اختر طريقة الاستخدام").font(.title2.weight(.bold)).foregroundStyle(OrionPalette.cream)
+                Text("كل وضع مصمم لطريقة مختلفة لمشاهدة الترجمة والتحكم بها.")
                     .font(.subheadline).foregroundStyle(OrionPalette.muted)
             }
-            LazyVGrid(columns: columns, spacing: 12) {
-                modeCard("الترجمة المباشرة", detail: "عرض اللعبة والترجمة فوق النص", icon: "play.tv", action: liveAction)
-                modeCard("شاشة الترجمة", detail: "عرض الترجمات فقط", icon: "captions.bubble", action: blackAction)
-                modeCard("وضع التحكم", detail: "إدارة القص وOCR والتلفاز دون عرض اللعبة", icon: "slider.horizontal.3", action: controlAction)
-                Button { showingTVSetup = true } label: {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Image(systemName: "tv").font(.system(size: 25, weight: .semibold)).foregroundStyle(OrionPalette.olive)
-                        HStack {
-                            Text("Orion TV").font(.headline).foregroundStyle(OrionPalette.cream)
-                            Spacer()
-                            Circle().fill(tvLinkPublisher.isConnected ? Color.green : OrionPalette.muted).frame(width: 7, height: 7)
-                        }
-                        Text(tvLinkPublisher.isConnected ? "التلفاز متصل" : "إعداد وربط التلفاز")
-                            .font(.caption).foregroundStyle(OrionPalette.muted)
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
-                    .padding(16)
-                    .background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 18))
-                    .overlay(RoundedRectangle(cornerRadius: 18).stroke(OrionPalette.stroke, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
+            LazyVGrid(columns: columns, spacing: 14) {
+                modeCard(number: "01", eyebrow: "LIVE PLAY", title: "الترجمة المباشرة",
+                    detail: "اللعبة أمامك والترجمة تظهر فوق النص في مكانه.",
+                    icon: "play.tv.fill", prominent: true, action: liveAction)
+                modeCard(number: "02", eyebrow: "SUBTITLES", title: "شاشة الترجمة",
+                    detail: "واجهة هادئة تركز على النصوص المترجمة فقط.",
+                    icon: "captions.bubble.fill", prominent: false, action: blackAction)
+                modeCard(number: "03", eyebrow: "CONTROL", title: "وضع التحكم",
+                    detail: "تحكم في OCR والقص والجلسة دون رسم صورة اللعبة.",
+                    icon: "slider.horizontal.3", prominent: false, action: controlAction)
             }
         }
-        .sheet(isPresented: $showingTVSetup) { TVLinkSetupView(publisher: tvLinkPublisher) }
     }
 
-    private func modeCard(_ title: String, detail: String, icon: String, action: @escaping () -> Void) -> some View {
+    private func modeCard(number: String, eyebrow: String, title: String, detail: String,
+                          icon: String, prominent: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
-                Image(systemName: icon).font(.system(size: 25, weight: .semibold)).foregroundStyle(OrionPalette.olive)
-                Text(title).font(.headline).foregroundStyle(OrionPalette.cream)
-                Text(detail).font(.caption).foregroundStyle(OrionPalette.muted).fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 13) {
+                HStack {
+                    Image(systemName: icon).font(.system(size: 21, weight: .semibold))
+                        .foregroundStyle(prominent ? OrionPalette.buttonText : OrionPalette.olive)
+                        .frame(width: 44, height: 44)
+                        .background(prominent ? OrionPalette.cream.opacity(0.24) : OrionPalette.panelAlt,
+                                    in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    Spacer()
+                    Text(number).font(.system(size: 12, weight: .bold, design: .rounded).monospacedDigit())
+                        .foregroundStyle(prominent ? OrionPalette.buttonText.opacity(0.7) : OrionPalette.muted)
+                    Image(systemName: "arrow.up.left").font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(prominent ? OrionPalette.buttonText : OrionPalette.muted)
+                }
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(eyebrow).font(.system(size: 9, weight: .bold)).tracking(1.7)
+                        .foregroundStyle(prominent ? OrionPalette.buttonText.opacity(0.72) : OrionPalette.muted)
+                    Text(title).font(.headline.weight(.bold))
+                        .foregroundStyle(prominent ? OrionPalette.buttonText : OrionPalette.cream)
+                    Text(detail).font(.caption)
+                        .foregroundStyle(prominent ? OrionPalette.buttonText.opacity(0.82) : OrionPalette.muted)
+                        .fixedSize(horizontal: false, vertical: true).lineLimit(3)
+                }
+                Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity, minHeight: 112, alignment: .leading)
-            .padding(16)
-            .background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).stroke(OrionPalette.stroke, lineWidth: 1))
+            .padding(17).frame(maxWidth: .infinity, minHeight: 170, alignment: .leading)
+            .background(prominent ? OrionPalette.olive : OrionPalette.panel,
+                        in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(prominent ? OrionPalette.olive : OrionPalette.stroke, lineWidth: 1))
         }
         .buttonStyle(.plain)
     }
