@@ -12,9 +12,7 @@
     <application
         android:allowBackup="false"
         android:banner="@drawable/orion_tv_banner_exact"
-        android:icon="@mipmap/orion_tv_app_icon"
-        android:logo="@mipmap/orion_tv_app_icon"
-        android:roundIcon="@mipmap/orion_tv_app_icon"
+        android:icon="@drawable/orion_tv_app_icon"
         android:label="Orion Subtitles TV"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
@@ -22,9 +20,6 @@
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="landscape"
-            android:icon="@mipmap/orion_tv_app_icon"
-            android:logo="@mipmap/orion_tv_app_icon"
-            android:banner="@drawable/orion_tv_banner_exact"
             android:label="Orion Subtitles TV">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
