@@ -34,7 +34,7 @@
 "هل تريد مسح سجل الترجمات بالكامل؟" = "Clear the entire translation history?";
 "إلغاء" = "Cancel";
 "الفيديو" = "Video";
-"العرض" = "Width";
+"العرض" = "Display";
 "وحدة التحكم" = "Controller";
 "الدقة" = "Resolution";
 "معدل الإطارات" = "Frame rate";
@@ -138,3 +138,4 @@
 "الإطارات المعالجة" = "Processed frames";
 "حالة الترجمة" = "Translation status";
 "أدوات الجلسة" = "Session tools";
+"عرض المنطقة" = "Region width";
