@@ -49,6 +49,7 @@ final class TranslationCoordinator {
     private var pendingOCRFrame: (pixelBuffer: CVPixelBuffer, capturedAt: ContinuousClock.Instant)?
     private var ocrGeneration: UInt64 = 0
     private var translationTasks: [UInt64: Task<Void, Never>] = [:]
+    private var visibleExpiryTask: Task<Void, Never>?
     private var lastSubmittedAt: ContinuousClock.Instant?
     private var lastObservationFingerprint = ""
     private var latestOCRObservations: [OCRTextObservation] = []
@@ -56,7 +57,8 @@ final class TranslationCoordinator {
     private var cache: [String: String] = [:]
     private var cacheOrder: [String] = []
     private let maximumCachedTranslations = 512
-    private let visibleEntryExpirationInterval: TimeInterval = 0.35
+    // A short grace period tolerates a missed OCR frame without leaving stale TV captions.
+    private let visibleEntryExpirationInterval: TimeInterval = 0.45
 
     let appleTranslationBridge: AnyObject?
 
@@ -135,6 +137,8 @@ final class TranslationCoordinator {
     }
 
     func stop() {
+        visibleExpiryTask?.cancel()
+        visibleExpiryTask = nil
         ocrGeneration &+= 1
         ocrTask?.cancel()
         ocrTask = nil
@@ -315,8 +319,13 @@ final class TranslationCoordinator {
         visibleEntries = visibleEntries.map { currentEntry in
             let key = Self.normalize(currentEntry.sourceText)
             let candidates = observations.indices.filter {
-                !usedObservationIndices.contains($0) &&
-                Self.normalize(observations[$0].text) == key
+                guard !usedObservationIndices.contains($0),
+                      Self.normalize(observations[$0].text) == key else { return false }
+                // Identical words elsewhere on the screen are new observations,
+                // not proof that the old caption is still visible.
+                let box = observations[$0].boundingBox
+                return hypot(box.midX - currentEntry.boundingBox.midX,
+                             box.midY - currentEntry.boundingBox.midY) <= 0.12
             }
             guard let bestIndex = candidates.min(by: { lhs, rhs in
                 let old = currentEntry.boundingBox
@@ -339,6 +348,22 @@ final class TranslationCoordinator {
             return updated
         }
         pruneExpiredVisibleEntries()
+        scheduleVisibleEntryExpiry()
+    }
+
+    private func scheduleVisibleEntryExpiry() {
+        guard visibleExpiryTask == nil, !visibleEntries.isEmpty else { return }
+        visibleExpiryTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(75))
+                guard let self else { return }
+                self.pruneExpiredVisibleEntries()
+                if self.visibleEntries.isEmpty {
+                    self.visibleExpiryTask = nil
+                    return
+                }
+            }
+        }
     }
 
     private func pruneExpiredVisibleEntries() {
@@ -406,6 +431,7 @@ final class TranslationCoordinator {
                 createdAt: entry.createdAt
             )
         }
+        scheduleVisibleEntryExpiry()
 	}
 
     private func storeCachedTranslation(_ translated: String, for key: String) {
