@@ -69,8 +69,15 @@ final class OCRService {
             // Crop coordinates are converted back to the original frame.
             // The overlay must never use crop-relative or mirrored coordinates.
             let fullFrameBox = OCRCoordinateMapper.fullFrameRect(for: local, in: selectedRegion)
+            let tvFrameBox = OCRCoordinateMapper.tvFrameRect(for: local, in: selectedRegion)
             let sampledBackground = Self.sampleSurroundingColor(in: fullImage, normalizedBox: fullFrameBox, extent: extent)
-            return OCRTextObservation(text: text, boundingBox: fullFrameBox, confidence: candidate.confidence, backgroundColorHex: sampledBackground)
+            return OCRTextObservation(
+                text: text,
+                boundingBox: fullFrameBox,
+                confidence: candidate.confidence,
+                backgroundColorHex: sampledBackground,
+                tvBoundingBox: tvFrameBox
+            )
         }
         guard !observations.isEmpty else { return nil }
         return OCRResult(observations: observations, capturedAt: capturedAt, startedAt: startedAt, finishedAt: ContinuousClock.now)

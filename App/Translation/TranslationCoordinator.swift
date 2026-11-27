@@ -343,6 +343,7 @@ final class TranslationCoordinator {
             updated.boundingBox = observations[bestIndex].boundingBox
             updated.confidence = observations[bestIndex].confidence
             updated.backgroundColorHex = observations[bestIndex].backgroundColorHex
+            updated.tvBoundingBox = observations[bestIndex].tvBoundingBox
             updated.lastSeenAt = Date()
             return updated
         }
@@ -384,6 +385,7 @@ final class TranslationCoordinator {
 	            boundingBox: currentObservation.boundingBox,
 	            confidence: currentObservation.confidence,
 	            backgroundColorHex: currentObservation.backgroundColorHex,
+                tvBoundingBox: currentObservation.tvBoundingBox,
 	            metrics: LatencyMetrics(
 	                capturedAt: result.capturedAt,
 	                ocrStartedAt: result.startedAt,
@@ -412,6 +414,7 @@ final class TranslationCoordinator {
                 updated.boundingBox = entry.boundingBox
                 updated.confidence = entry.confidence
                 updated.backgroundColorHex = entry.backgroundColorHex
+                updated.tvBoundingBox = entry.tvBoundingBox
                 updated.lastSeenAt = Date()
                 visibleEntries[index] = updated
                 latestEntry = updated

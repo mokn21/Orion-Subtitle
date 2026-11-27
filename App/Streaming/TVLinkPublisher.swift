@@ -87,7 +87,7 @@ final class TVLinkPublisher {
             send(["type": "subtitle.clear", "id": removedID])
         }
         for (id, entry) in current {
-            let box = entry.boundingBox
+            let box = entry.tvBoundingBox
             send([
                 "type": "subtitle.show",
                 "id": id,

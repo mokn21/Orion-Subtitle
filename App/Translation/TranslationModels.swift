@@ -8,13 +8,15 @@ struct OCRTextObservation: Equatable, Identifiable {
     let boundingBox: CGRect
     let confidence: Float
     let backgroundColorHex: String
+    let tvBoundingBox: CGRect
 
-    init(id: UUID = UUID(), text: String, boundingBox: CGRect, confidence: Float, backgroundColorHex: String = "#000000") {
+    init(id: UUID = UUID(), text: String, boundingBox: CGRect, confidence: Float, backgroundColorHex: String = "#000000", tvBoundingBox: CGRect? = nil) {
         self.id = id
         self.text = text
         self.boundingBox = boundingBox
         self.confidence = confidence
         self.backgroundColorHex = backgroundColorHex
+        self.tvBoundingBox = tvBoundingBox ?? boundingBox
     }
 }
 
@@ -117,6 +119,19 @@ enum OCRCoordinateMapper {
             height: localVisionRect.height * CGFloat(region.height)
         )
     }
+
+    /// Retains the legacy TV coordinate convention independently from the
+    /// corrected iPad preview coordinates. The TV's displayed placement stays stable.
+    static func tvFrameRect(for localVisionRect: CGRect, in captureRegion: CaptureRegion) -> CGRect {
+        let region = captureRegion.clamped
+        let tvRegionX = 1 - region.x - region.width
+        return CGRect(
+            x: CGFloat(tvRegionX) + localVisionRect.minX * CGFloat(region.width),
+            y: CGFloat(region.y) + localVisionRect.minY * CGFloat(region.height),
+            width: localVisionRect.width * CGFloat(region.width),
+            height: localVisionRect.height * CGFloat(region.height)
+        )
+    }
 }
 
 struct TranslationEntry: Identifiable, Equatable {
@@ -127,6 +142,7 @@ struct TranslationEntry: Identifiable, Equatable {
     var boundingBox: CGRect
     var confidence: Float
     var backgroundColorHex: String = "#000000"
+    var tvBoundingBox: CGRect = .zero
     var lastSeenAt = Date()
     let createdAt = Date()
     let metrics: LatencyMetrics
