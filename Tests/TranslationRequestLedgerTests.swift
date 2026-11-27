@@ -249,21 +249,20 @@ final class TranslationRequestLedgerTests: XCTestCase {
             XCTAssertEqual(leftSource.x, 0.7, accuracy: 0.0001)
         }
 
-        func testOCRCropCoordinatesMapToMirroredPixelBufferSpace() {
+        func testOCRCropCoordinatesRemainInPixelBufferSpaceForTVPublisher() {
             let fullScreen = CaptureRegion.fullScreen
-            let displayedLeftText = OCRCoordinateMapper.fullFrameRect(
+            let leftSourceText = OCRCoordinateMapper.fullFrameRect(
                 for: CGRect(x: 0.08, y: 0.2, width: 0.12, height: 0.06),
                 in: fullScreen
             )
-            XCTAssertEqual(displayedLeftText.minX, 0.8, accuracy: 0.0001)
-            XCTAssertEqual(displayedLeftText.minY, 0.2, accuracy: 0.0001)
-            XCTAssertEqual(displayedLeftText.width, 0.12, accuracy: 0.0001)
+            XCTAssertEqual(leftSourceText.minX, 0.08, accuracy: 0.0001)
+            XCTAssertEqual(leftSourceText.minY, 0.2, accuracy: 0.0001)
 
-            let displayedRightText = OCRCoordinateMapper.fullFrameRect(
+            let rightSourceText = OCRCoordinateMapper.fullFrameRect(
                 for: CGRect(x: 0.78, y: 0.2, width: 0.12, height: 0.06),
                 in: fullScreen
             )
-            XCTAssertEqual(displayedRightText.minX, 0.1, accuracy: 0.0001)
+            XCTAssertEqual(rightSourceText.minX, 0.78, accuracy: 0.0001)
 
             let crop = CaptureRegion(x: 0.2, y: 0.1, width: 0.5, height: 0.4)
             let mapped = OCRCoordinateMapper.fullFrameRect(
