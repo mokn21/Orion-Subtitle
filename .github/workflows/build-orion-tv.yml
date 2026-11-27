@@ -37,6 +37,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.9"
+          # The iPad's vendored Chiaki/Oboe source includes its own wrapper JAR.
+          # The Android TV build does not execute those unrelated wrappers.
+          validate-wrappers: false
 
       - name: Run unit tests and assemble TV APK
         run: |
