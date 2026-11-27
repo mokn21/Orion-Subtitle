@@ -433,59 +433,124 @@ struct StreamView: View {
 
     private func controlOnlyDashboard(for session: StreamSession?) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
-                HStack(spacing: 12) {
-                    Image(systemName: "captions.bubble.fill").font(.system(size: 30)).foregroundStyle(OrionPalette.cream)
-                        .frame(width: 58, height: 58).background(OrionPalette.panelAlt, in: RoundedRectangle(cornerRadius: 16))
+            VStack(alignment: .leading, spacing: 20) {
+                HStack(spacing: 14) {
+                    Image(systemName: "captions.bubble.fill")
+                        .font(.system(size: 27, weight: .semibold))
+                        .foregroundStyle(OrionPalette.buttonText)
+                        .frame(width: 58, height: 58)
+                        .background(OrionPalette.olive, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("ORION CONTROL").font(.headline.weight(.bold)).tracking(1.5).foregroundStyle(OrionPalette.cream)
-                        Text("وضع التحكم فقط").font(.caption).foregroundStyle(OrionPalette.muted)
+                        Text("ORION CONTROL")
+                            .font(.headline.weight(.heavy)).tracking(1.4)
+                            .foregroundStyle(OrionPalette.cream)
+                        Text("وضع التحكم فقط")
+                            .font(.caption).foregroundStyle(OrionPalette.muted)
                     }
                     Spacer()
-                    Circle().fill(tvLinkPublisher.isConnected ? Color.green : OrionPalette.olive).frame(width: 9, height: 9)
-                    Text(tvLinkPublisher.isConnected ? "التلفاز متصل" : "جاهز للربط").font(.caption).foregroundStyle(OrionPalette.muted)
+                    HStack(spacing: 7) {
+                        Circle()
+                            .fill(tvLinkPublisher.isConnected ? Color.green : OrionPalette.olive)
+                            .frame(width: 8, height: 8)
+                        Text(tvLinkPublisher.isConnected ? "التلفاز متصل" : "جاهز للربط")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(OrionPalette.cream)
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 9)
+                    .background(OrionPalette.panelAlt, in: Capsule())
                 }
-                .padding(18).background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 20))
+                .padding(18)
+                .background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(OrionPalette.stroke, lineWidth: 1))
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("إدارة الترجمة").font(.title3.bold()).foregroundStyle(OrionPalette.cream)
-                    Text("تستمر معالجة Remote Play في الخلفية، لكن صورة اللعبة لا تظهر على هذه الشاشة.")
-                        .font(.subheadline).foregroundStyle(OrionPalette.muted)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("لوحة التحكم")
+                        .font(.system(size: 27, weight: .bold, design: .rounded))
+                        .foregroundStyle(OrionPalette.cream)
+                    Text("تعمل جلسة Remote Play في الخلفية لتغذية OCR، من دون إنشاء عارض لصورة اللعبة أو عرض شاشة سوداء.")
+                        .font(.subheadline)
+                        .foregroundStyle(OrionPalette.muted)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
                 if let session {
-                    HStack(spacing: 10) {
-                        controlActionCard(
-                            title: session.translationCoordinator.state == .running ? "إيقاف OCR مؤقتًا" : "استئناف OCR",
-                            subtitle: session.translationCoordinator.state == .running ? "إيقاف قراءة النص" : "متابعة قراءة النص",
-                            icon: session.translationCoordinator.state == .running ? "pause.fill" : "play.fill"
-                        ) {
-                            if session.translationCoordinator.state == .running { session.translationCoordinator.pause() }
-                            else { session.translationCoordinator.start() }
-                        }
-                        controlActionCard(title: "قص المنطقة", subtitle: "تحديد مساحة قراءة النص", icon: "crop") {
-                            showRegionEditor = true
+                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                        controlMetric(
+                            title: "Remote Play",
+                            value: session.state == .streaming ? "متصل" : "جارٍ الاتصال",
+                            detail: session.console.name,
+                            icon: "gamecontroller.fill",
+                            positive: session.state == .streaming
+                        )
+                        controlMetric(
+                            title: "OCR",
+                            value: session.translationCoordinator.state == .running ? "يعمل" : "متوقف مؤقتًا",
+                            detail: session.translationCoordinator.ocrStatusMessage,
+                            icon: "text.viewfinder",
+                            positive: session.translationCoordinator.state == .running
+                        )
+                        controlMetric(
+                            title: "النصوص الحالية",
+                            value: "\(session.translationCoordinator.visibleEntries.count)",
+                            detail: "ترجمات ظاهرة الآن",
+                            icon: "captions.bubble",
+                            positive: true
+                        )
+                        controlMetric(
+                            title: "الإطارات المعالجة",
+                            value: "\(session.translationCoordinator.processedFrames)",
+                            detail: "تم تجاوز \(session.translationCoordinator.skippedFrames) إطارًا",
+                            icon: "waveform.path",
+                            positive: true
+                        )
+                    }
+
+                    VStack(alignment: .leading, spacing: 7) {
+                        Label("حالة الترجمة", systemImage: "character.bubble")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(OrionPalette.cream)
+                        Text(session.translationCoordinator.translationStatusMessage)
+                            .font(.caption)
+                            .foregroundStyle(OrionPalette.muted)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(OrionPalette.panelAlt, in: RoundedRectangle(cornerRadius: 17, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("أدوات الجلسة")
+                            .font(.title3.weight(.bold))
+                            .foregroundStyle(OrionPalette.cream)
+                        LazyVGrid(columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)], spacing: 12) {
+                            controlActionCard(
+                                title: session.translationCoordinator.state == .running ? "إيقاف OCR مؤقتًا" : "استئناف OCR",
+                                subtitle: session.translationCoordinator.state == .running ? "إيقاف قراءة النص" : "متابعة قراءة النص",
+                                icon: session.translationCoordinator.state == .running ? "pause.fill" : "play.fill"
+                            ) {
+                                if session.translationCoordinator.state == .running { session.translationCoordinator.pause() }
+                                else { session.translationCoordinator.start() }
+                            }
+                            controlActionCard(title: "قص المنطقة", subtitle: "تحديد مساحة قراءة النص", icon: "crop") {
+                                showRegionEditor = true
+                            }
+                            controlActionCard(title: "المنطقة الثانية", subtitle: "إعداد منطقة OCR إضافية", icon: "viewfinder") {
+                                if session.translationCoordinator.secondaryEnabled { showSecondRegionEditor = true }
+                            }
+                            .opacity(session.translationCoordinator.secondaryEnabled ? 1 : 0.5)
+                            .disabled(!session.translationCoordinator.secondaryEnabled)
+                            controlActionCard(title: "إعداد التلفاز", subtitle: tvLinkPublisher.status, icon: "tv") {
+                                showTVLinkSetup = true
+                            }
                         }
                     }
-                    HStack(spacing: 10) {
-                        controlActionCard(title: "المنطقة الثانية", subtitle: "إعداد منطقة OCR إضافية", icon: "viewfinder") {
-                            if session.translationCoordinator.secondaryEnabled { showSecondRegionEditor = true }
-                        }
-                        .opacity(session.translationCoordinator.secondaryEnabled ? 1 : 0.55)
-                        controlActionCard(title: "إعداد التلفاز", subtitle: tvLinkPublisher.status, icon: "tv") {
-                            showTVLinkSetup = true
-                        }
-                    }
-                    HStack {
-                        Label(session.state == .streaming ? "جلسة PS5 تعمل" : "جارٍ الاتصال بـ PS5", systemImage: "gamecontroller")
-                        Spacer()
-                        Text("\(session.translationCoordinator.visibleEntries.count) ترجمات ظاهرة")
-                    }
-                    .font(.caption).foregroundStyle(OrionPalette.muted)
-                    .padding(14).background(OrionPalette.panelAlt, in: RoundedRectangle(cornerRadius: 14))
                 } else {
-                    ProgressView("جارٍ تجهيز جلسة Remote Play…").tint(OrionPalette.olive).foregroundStyle(OrionPalette.cream)
-                        .padding(20).frame(maxWidth: .infinity).background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 18))
+                    ProgressView("جارٍ تجهيز جلسة Remote Play…")
+                        .tint(OrionPalette.olive)
+                        .foregroundStyle(OrionPalette.cream)
+                        .frame(maxWidth: .infinity)
+                        .padding(24)
+                        .background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 }
 
                 Button(role: .destructive) {
@@ -493,16 +558,50 @@ struct StreamView: View {
                     dismiss()
                 } label: {
                     Label("إيقاف الجلسة", systemImage: "stop.fill")
-                        .font(.headline).frame(maxWidth: .infinity).padding(16)
-                        .background(OrionPalette.stroke, in: RoundedRectangle(cornerRadius: 15))
+                        .font(.headline)
+                        .frame(maxWidth: .infinity)
+                        .padding(16)
+                        .background(OrionPalette.stroke, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .foregroundStyle(OrionPalette.cream)
                 }
                 .buttonStyle(.plain)
             }
-            .padding(24).frame(maxWidth: 820).frame(maxWidth: .infinity)
+            .padding(24)
+            .frame(maxWidth: 900)
+            .frame(maxWidth: .infinity)
         }
         .background(OrionPalette.background.ignoresSafeArea())
         .environment(\.layoutDirection, Locale.current.language.languageCode?.identifier == "ar" ? .rightToLeft : .leftToRight)
+    }
+
+    private func controlMetric(title: String, value: String, detail: String, icon: String, positive: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack {
+                Image(systemName: icon)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(OrionPalette.olive)
+                Spacer()
+                Circle()
+                    .fill(positive ? Color.green : OrionPalette.olive)
+                    .frame(width: 7, height: 7)
+            }
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(OrionPalette.muted)
+            Text(value)
+                .font(.title3.weight(.bold))
+                .foregroundStyle(OrionPalette.cream)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(detail)
+                .font(.caption2)
+                .foregroundStyle(OrionPalette.muted)
+                .lineLimit(2)
+        }
+        .frame(maxWidth: .infinity, minHeight: 118, alignment: .leading)
+        .padding(15)
+        .background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(OrionPalette.stroke, lineWidth: 1))
     }
 
     private func controlActionCard(title: String, subtitle: String, icon: String, action: @escaping () -> Void) -> some View {
