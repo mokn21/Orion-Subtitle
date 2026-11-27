@@ -19,6 +19,7 @@ class OverlayController(private val context: Context) {
     private val handler = Handler(Looper.getMainLooper())
     private val views = ConcurrentHashMap<String, TextView>()
     private val expiryTasks = ConcurrentHashMap<String, Runnable>()
+    private val entryBackgroundColors = ConcurrentHashMap<String, Int>()
 
     @Volatile private var textColor = Color.WHITE
     @Volatile private var backgroundColor = Color.BLACK
@@ -32,6 +33,7 @@ class OverlayController(private val context: Context) {
         y: Double,
         width: Double,
         height: Double,
+        backgroundColorHex: String? = null,
         ttlMs: Long = 3000L
     ) {
         if (!Settings.canDrawOverlays(context)) return
@@ -42,7 +44,8 @@ class OverlayController(private val context: Context) {
         handler.post {
             val view = views[id] ?: createTextView().also { views[id] = it }
             view.text = text
-            applyStyle(view, rect.height)
+            backgroundColorHex?.takeIf { it.startsWith("#") }?.let { runCatching { entryBackgroundColors[id] = Color.parseColor(it) } }
+            applyStyle(view, rect.height, entryBackgroundColors[id])
             val params = (view.layoutParams as? WindowManager.LayoutParams)
                 ?: WindowManager.LayoutParams(
                     rect.width,
@@ -99,9 +102,9 @@ class OverlayController(private val context: Context) {
             fontScale = json.optDouble("fontScale", fontScale).coerceIn(0.2, 1.2)
         }
         handler.post {
-            views.values.forEach { view ->
+            views.forEach { (id, view) ->
                 val height = (view.layoutParams as? WindowManager.LayoutParams)?.height ?: 24
-                applyStyle(view, height)
+                applyStyle(view, height, entryBackgroundColors[id])
             }
         }
     }
@@ -117,11 +120,12 @@ class OverlayController(private val context: Context) {
         includeFontPadding = false
     }
 
-    private fun applyStyle(view: TextView, height: Int) {
+    private fun applyStyle(view: TextView, height: Int, entryBackground: Int? = null) {
         view.setTextColor(textColor)
         view.setTextSize(TypedValue.COMPLEX_UNIT_PX, (height * fontScale).coerceAtLeast(7.0).toFloat())
         val drawable = GradientDrawable()
-        drawable.setColor((backgroundColor and 0x00FFFFFF) or
+        val selectedBackground = entryBackground ?: backgroundColor
+        drawable.setColor((selectedBackground and 0x00FFFFFF) or
             ((backgroundAlpha * 255).toInt() shl 24))
         drawable.cornerRadius = 2f
         view.background = drawable
@@ -136,6 +140,7 @@ class OverlayController(private val context: Context) {
 
     private fun removeNow(id: String) {
         expiryTasks.remove(id)?.let(handler::removeCallbacks)
+        entryBackgroundColors.remove(id)
         views.remove(id)?.let { view ->
             runCatching { if (view.isAttachedToWindow) windowManager.removeView(view) }
         }
