@@ -37,6 +37,8 @@ struct CaptureRegionEditorView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                // Image/crop coordinates are physical left-to-right, independent of Arabic UI direction.
+                .environment(\.layoutDirection, .leftToRight)
                 .padding(.horizontal)
 
                 VStack(spacing: 8) {
