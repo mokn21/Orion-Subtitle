@@ -279,4 +279,46 @@ private struct ImmediateTestTranslationService: TextTranslationService {
     func translate(_ text: String) async throws -> String {
         "ar:\(text)"
     }
+
+    func testLateTranslationRequiresSourceTextToRemainInLatestOCRFrame() {
+        let original = OCRTextObservation(
+            text: "Press Start",
+            boundingBox: CGRect(x: 0.2, y: 0.3, width: 0.25, height: 0.08),
+            confidence: 0.95
+        )
+        let stillVisible = OCRTextObservation(
+            text: "Press Start",
+            boundingBox: CGRect(x: 0.22, y: 0.31, width: 0.25, height: 0.08),
+            confidence: 0.93
+        )
+
+        XCTAssertNotNil(TranslationCoordinator.currentObservation(for: original, among: [stillVisible]))
+        XCTAssertNil(TranslationCoordinator.currentObservation(for: original, among: []))
+        XCTAssertNil(TranslationCoordinator.currentObservation(
+            for: original,
+            among: [OCRTextObservation(
+                text: "Continue",
+                boundingBox: original.boundingBox,
+                confidence: 0.99
+            )]
+        ))
+    }
+
+    func testLateTranslationUsesLatestOCRGeometryForSameSourceText() {
+        let original = OCRTextObservation(
+            text: "Press Start",
+            boundingBox: CGRect(x: 0.1, y: 0.1, width: 0.2, height: 0.08),
+            confidence: 0.8
+        )
+        let latest = OCRTextObservation(
+            text: "Press Start",
+            boundingBox: CGRect(x: 0.4, y: 0.5, width: 0.3, height: 0.1),
+            confidence: 0.98
+        )
+
+        let current = TranslationCoordinator.currentObservation(for: original, among: [latest])
+        XCTAssertEqual(current?.boundingBox, latest.boundingBox)
+        XCTAssertEqual(current?.confidence, latest.confidence)
+    }
+
 }

@@ -79,10 +79,10 @@ final class StreamSession {
 	@ObservationIgnored private var loggedDecodeFailure = false
 	@ObservationIgnored private var videoCallbackCount = 0
 
-	init(console: Console, settings: StreamSettings, historyStore: TranslationHistoryStore) {
+	init(console: Console, settings: StreamSettings, historyStore: TranslationHistoryStore, renderVideo: Bool = true) {
 		self.console = console
 		self.settings = settings
-		self.renderer = MetalRenderer()
+		self.renderer = renderVideo ? MetalRenderer() : nil
 		self.translationCoordinator = TranslationCoordinator(historyStore: historyStore, historyContext: console.name)
 		self.translationCoordinator.region = settings.translationRegion
 		self.translationCoordinator.sourceLanguage = settings.translationSourceLanguage
@@ -121,11 +121,6 @@ final class StreamSession {
 		defer { startInProgress = false }
 		connectionTimeoutWork?.cancel()
 		connectionTimeoutWork = nil
-		guard let renderer else {
-			activeAttemptID = nil
-			state = .ended(error: "Metal isn't available on this device.")
-			return
-		}
 		if case .reconnecting = state {} else { state = .connecting }
 		keyboardText = nil
 		lostFrames = 0
@@ -133,8 +128,8 @@ final class StreamSession {
 
 		let codec = settings.effectiveCodec
 		let decoder = VideoDecoder(hevc: codec == .h265, tenBit: settings.hdr)
-		decoder.onFrame = { [weak renderer, weak self] frame in
-			renderer?.display(frame)
+		decoder.onFrame = { [weak self] frame in
+            self?.renderer?.display(frame)
 			guard let self else { return }
 			if !self.loggedFirstDecodedFrame {
 				self.loggedFirstDecodedFrame = true
@@ -152,13 +147,13 @@ final class StreamSession {
 			}
 		}
 		self.decoder = decoder
-		renderer.resetDiagnostics()
-		renderer.onFirstPresented = { [weak self] in
+		renderer?.resetDiagnostics()
+		renderer?.onFirstPresented = { [weak self] in
 			guard let self else { return }
 			log.notice("Remote Play first Metal frame committed attempt=\(self.activeAttemptID?.uuidString ?? "none", privacy: .public)")
 		}
-		renderer.configure(hdr: settings.hdr, displayMode: settings.displayMode, bicubic: settings.sharpUpscaling)
-		renderer.setPaused(paused)
+		renderer?.configure(hdr: settings.hdr, displayMode: settings.displayMode, bicubic: settings.sharpUpscaling)
+		renderer?.setPaused(paused)
 
 		var config = CKSessionConfig()
 		let size = settings.resolution.size

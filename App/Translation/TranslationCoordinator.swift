@@ -51,11 +51,12 @@ final class TranslationCoordinator {
     private var translationTasks: [UInt64: Task<Void, Never>] = [:]
     private var lastSubmittedAt: ContinuousClock.Instant?
     private var lastObservationFingerprint = ""
+    private var latestOCRObservations: [OCRTextObservation] = []
     private var nextGeneration: UInt64 = 0
     private var cache: [String: String] = [:]
     private var cacheOrder: [String] = []
     private let maximumCachedTranslations = 512
-    private let visibleEntryExpirationInterval: TimeInterval = 0.55
+    private let visibleEntryExpirationInterval: TimeInterval = 0.35
 
     let appleTranslationBridge: AnyObject?
 
@@ -116,6 +117,7 @@ final class TranslationCoordinator {
         translationTasks.values.forEach { $0.cancel() }
         translationTasks.removeAll()
         lastObservationFingerprint = ""
+        latestOCRObservations = []
 		lastError = nil
 		ocrStatusMessage = "OCR يعمل وينتظر إطارًا نصيًا."
 		translationStatusMessage = "بانتظار نص إنجليزي من OCR."
@@ -143,6 +145,7 @@ final class TranslationCoordinator {
 		state = .stopped
         secondaryCoordinator?.stop()
 		lastObservationFingerprint = ""
+        latestOCRObservations = []
 		visibleEntries = []
 		ocrStatusMessage = "تم إيقاف OCR والترجمة."
 		translationStatusMessage = "تم إيقاف الترجمة."
@@ -193,6 +196,9 @@ final class TranslationCoordinator {
                     self.acceptOCR(result)
                 } else {
                     self.ocrStatusMessage = "لم يُكتشف نص في آخر إطار."
+                    self.latestOCRObservations = []
+                    self.lastObservationFingerprint = ""
+                    self.nextGeneration &+= 1
                     self.pruneExpiredVisibleEntries()
                 }
 
@@ -209,8 +215,11 @@ final class TranslationCoordinator {
 
 		private func acceptOCR(_ result: OCRResult) {
 			let observations = result.observations.filter { !Self.normalize($0.text).isEmpty }
+            latestOCRObservations = observations
 			guard !observations.isEmpty else {
                 skippedFrames += 1
+                lastObservationFingerprint = ""
+                nextGeneration &+= 1
                 // Clear captions after an empty OCR frame instead of leaving
                 // their last successful translation visible indefinitely.
                 pruneExpiredVisibleEntries()
@@ -338,14 +347,18 @@ final class TranslationCoordinator {
     }
 
     private func publish(_ translated: String, observation: OCRTextObservation, result: OCRResult, generation: UInt64) {
-        // A late translation may finish, but it must never replace a newer one.
-        guard generation == nextGeneration, (state == .running || state == .paused) else { return }
+        // A result is publishable only while OCR still sees its source text.
+        // This prevents a slow translation from appearing after the source vanishes.
+        guard generation == nextGeneration,
+              (state == .running || state == .paused),
+              let currentObservation = Self.currentObservation(for: observation, among: latestOCRObservations)
+        else { return }
         let finished = ContinuousClock.now
 		let entry = TranslationEntry(
-	            sourceText: observation.text,
+	            sourceText: currentObservation.text,
 	            translatedText: translated,
-	            boundingBox: observation.boundingBox,
-	            confidence: observation.confidence,
+	            boundingBox: currentObservation.boundingBox,
+	            confidence: currentObservation.confidence,
 	            metrics: LatencyMetrics(
 	                capturedAt: result.capturedAt,
 	                ocrStartedAt: result.startedAt,
@@ -408,6 +421,23 @@ final class TranslationCoordinator {
                 cache[expiredKey] = nil
             }
         }
+    }
+
+    static func currentObservation(
+        for source: OCRTextObservation,
+        among observations: [OCRTextObservation]
+    ) -> OCRTextObservation? {
+        let key = normalize(source.text)
+        return observations
+            .filter { normalize($0.text) == key }
+            .min { lhs, rhs in
+                let sourcePoint = source.boundingBox
+                let leftDistance = pow(lhs.boundingBox.midX - sourcePoint.midX, 2) +
+                    pow(lhs.boundingBox.midY - sourcePoint.midY, 2)
+                let rightDistance = pow(rhs.boundingBox.midX - sourcePoint.midX, 2) +
+                    pow(rhs.boundingBox.midY - sourcePoint.midY, 2)
+                return leftDistance < rightDistance
+            }
     }
 
     private static func normalize(_ text: String) -> String {

@@ -223,9 +223,9 @@ struct StreamView: View {
 
 			if needsController && session == nil {
 				controllerOverlay
-			} else if folded {
+			} else if !startInControlMode && folded {
 				pausedOverlay
-			} else if portrait {
+			} else if !startInControlMode && portrait {
 				rotateOverlay
 			}
 		}
@@ -244,7 +244,7 @@ struct StreamView: View {
 			return
 		}
 		log.notice("Starting Remote Play attempt \(attemptID.uuidString, privacy: .public) for \(console.name, privacy: .public)")
-				let session = StreamSession(console: console, settings: settingsStore.settings, historyStore: translationHistory)
+				let session = StreamSession(console: console, settings: settingsStore.settings, historyStore: translationHistory, renderVideo: !startInControlMode)
 		if let orientation = interfaceOrientation {
 			session.input.interfaceOrientation = orientation
 		}
@@ -288,7 +288,7 @@ struct StreamView: View {
 		let isFolded = DeviceLayout.isFolded(size) && !playHereAnyway
 		folded = isFolded
 		portrait = !isFolded && size.height > size.width
-		let canPlay = !isFolded && !portrait
+		let canPlay = startInControlMode || (!isFolded && !portrait)
 		guard session != nil else {
 			if canPlay && !needsController { startSession() }
 			return
