@@ -5,6 +5,18 @@ on:
   push:
     branches:
       - orion-rebuild
+    paths:
+      - "App/**"
+      - "project.yml"
+      - "Config/**"
+      - "ChiakiKit/**"
+      - "Frameworks/**"
+      - "scripts/**"
+      - "vendor/chiaki-ng/**"
+      - "vendor/mbedtls/**"
+      - "vendor/opus/**"
+      - ".gitmodules"
+      - ".github/workflows/build-orion-ipa.yml"
 
 permissions:
   contents: read
