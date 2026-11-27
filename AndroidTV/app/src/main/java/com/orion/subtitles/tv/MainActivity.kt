@@ -19,6 +19,8 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.qrcode.QRCodeWriter
 
 class MainActivity : Activity() {
     private lateinit var permissionStatus: TextView
@@ -242,7 +244,7 @@ class MainActivity : Activity() {
         val matrix = QRCodeWriter().encode(value, BarcodeFormat.QR_CODE, 360, 360)
         android.graphics.Bitmap.createBitmap(360, 360, android.graphics.Bitmap.Config.ARGB_8888).apply {
             for (x in 0 until 360) for (y in 0 until 360) {
-                setPixel(x, y, if (matrix[x, y]) Color.BLACK else Color.WHITE)
+                setPixel(x, y, if (matrix.get(x, y)) Color.BLACK else Color.WHITE)
             }
         }
     }.getOrNull()
