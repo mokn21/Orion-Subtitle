@@ -272,14 +272,6 @@ final class TranslationRequestLedgerTests: XCTestCase {
 			XCTAssertEqual(result.observations.map(\.text), ["Health", "Press X"])
 			XCTAssertEqual(result.observations.map(\.boundingBox), [first.boundingBox, second.boundingBox])
 		}
-	}
-
-
-private struct ImmediateTestTranslationService: TextTranslationService {
-    func translate(_ text: String) async throws -> String {
-        "ar:\(text)"
-    }
-
     func testLateTranslationRequiresSourceTextToRemainInLatestOCRFrame() {
         let original = OCRTextObservation(
             text: "Press Start",
@@ -319,6 +311,15 @@ private struct ImmediateTestTranslationService: TextTranslationService {
         let current = TranslationCoordinator.currentObservation(for: original, among: [latest])
         XCTAssertEqual(current?.boundingBox, latest.boundingBox)
         XCTAssertEqual(current?.confidence, latest.confidence)
+    }
+
+
+	}
+
+
+private struct ImmediateTestTranslationService: TextTranslationService {
+    func translate(_ text: String) async throws -> String {
+        "ar:\(text)"
     }
 
 }
