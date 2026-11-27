@@ -125,3 +125,16 @@
 "LIVE PLAY" = "LIVE PLAY";
 "SUBTITLE VIEW" = "SUBTITLE VIEW";
 "CONTROL" = "CONTROL";
+"مظهر النظام" = "System appearance";
+"يتبع Orion المظهر الفاتح أو الداكن المحدد في إعدادات iPadOS تلقائيًا." = "Orion automatically follows the light or dark appearance selected in iPadOS.";
+"لوحة التحكم" = "Control dashboard";
+"تعمل جلسة Remote Play في الخلفية لتغذية OCR، من دون إنشاء عارض لصورة اللعبة أو عرض شاشة سوداء." = "Remote Play runs in the background to feed OCR, without creating a game-video renderer or showing a black screen.";
+"متصل" = "Connected";
+"جارٍ الاتصال" = "Connecting";
+"يعمل" = "Running";
+"متوقف مؤقتًا" = "Paused";
+"النصوص الحالية" = "Current captions";
+"ترجمات ظاهرة الآن" = "Translations currently visible";
+"الإطارات المعالجة" = "Processed frames";
+"حالة الترجمة" = "Translation status";
+"أدوات الجلسة" = "Session tools";

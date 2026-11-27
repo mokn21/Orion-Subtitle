@@ -50,3 +50,15 @@
 "Rest mode" = "وضع الاستعداد";
 "Unknown" = "غير معروف";
 "SUBTITLE VIEW" = "شاشة الترجمة";
+"System appearance" = "مظهر النظام";
+"Control dashboard" = "لوحة التحكم";
+"Remote Play runs in the background to feed OCR, without creating a game-video renderer or showing a black screen." = "تعمل جلسة Remote Play في الخلفية لتغذية OCR، من دون إنشاء عارض لصورة اللعبة أو عرض شاشة سوداء.";
+"Connected" = "متصل";
+"Connecting" = "جارٍ الاتصال";
+"Running" = "يعمل";
+"Paused" = "متوقف مؤقتًا";
+"Current captions" = "النصوص الحالية";
+"Translations currently visible" = "ترجمات ظاهرة الآن";
+"Processed frames" = "الإطارات المعالجة";
+"Translation status" = "حالة الترجمة";
+"Session tools" = "أدوات الجلسة";

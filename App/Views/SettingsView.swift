@@ -27,7 +27,7 @@ struct StreamSettingsForm: View {
 			.disabled(settings.hdr)
 				Toggle("النطاق الديناميكي العالي HDR", isOn: $settings.hdr)
 		} header: {
-				Text("الفيديو")
+				Label("الفيديو", systemImage: "video")
 		} footer: {
 				Text("يدعم PS5 Remote Play حتى 1080p60. قد يخفض PS5 معدل البت عن القيمة المطلوبة. يتطلب HDR ترميز H.265 وتفعيله في إعدادات إخراج الفيديو في PS5. تغيير هذه الخيارات يعيد الاتصال بالبث.")
 		}
@@ -42,7 +42,7 @@ struct StreamSettingsForm: View {
 			}
 				Toggle("إظهار الإحصاءات", isOn: $settings.showStats)
 		} header: {
-				Text("العرض")
+				Label("العرض", systemImage: "rectangle.expand.vertical")
 		} footer: {
 				Text("تعرض الملاءمة الصورة كاملة مع أشرطة سوداء عند اختلاف نسبة الشاشة عن 16:9. يملأ التكبير الشاشة ويقص الأطراف الزائدة. قد تستهلك شاشة 120 هرتز بطارية أكثر قليلًا.")
 		}
@@ -52,7 +52,7 @@ struct StreamSettingsForm: View {
 			Toggle("Phone gyro for motion controls", isOn: $settings.phoneMotion)
 			Toggle("Select button is touchpad click", isOn: $settings.selectIsTouchpad)
 		} header: {
-				Text("وحدة التحكم")
+				Label("وحدة التحكم", systemImage: "gamecontroller")
 		} footer: {
 				Text("يُستخدم مستشعر حركة iPad عندما لا تحتوي وحدة التحكم على مستشعرات حركة. اضغط Select وStart معًا لمدة ثانية أثناء البث لفتح القائمة.")
 		}
@@ -100,7 +100,7 @@ struct SettingsView: View {
 							Label("الإبلاغ عن مشكلة", systemImage: "exclamationmark.bubble")
 					}
 				} header: {
-						Text("المساعدة")
+						Label("المساعدة", systemImage: "questionmark.circle")
 				} footer: {
 						Text("يحتوي التقرير على طراز iPad وتفاصيل الشاشة والإعدادات وسجلات التطبيق منذ فتحه. تُحذف عناوين IP والمفاتيح ومعرّفات الحساب وأسماء الأجهزة. شاركه قبل إغلاق التطبيق حتى تغطي السجلات المشكلة.")
 				}
@@ -199,7 +199,7 @@ private struct TranslationSettingsForm: View {
                 ), range: 0.1...1)
             }
 			} header: {
-				Text("الترجمة")
+				Label("الترجمة", systemImage: "captions.bubble")
 			} footer: {
 					Text("تُحفظ هذه الإعدادات وتُطبق على OCR والبث التالي. يستخدم التطبيق Apple Translation محليًا. على iPadOS 26.4 أو أحدث يفضّل High Fidelity عند توفره مع الرجوع التلقائي إلى Low Latency؛ وعلى الإصدارات الأقدم يستخدم إعداد الترجمة التقليدي. لا تُرسل النصوص تلقائيًا إلى خادم خارجي.")
 			}
