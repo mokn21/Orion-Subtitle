@@ -18,7 +18,7 @@ enum OrionPalette {
 
     static let background = adaptive(light: 0xF8F3D9, dark: 0x191B18)
     static let panel = adaptive(light: 0xEBE5C2, dark: 0x2B2E27)
-    static let panelAlt = adaptive(light: 0xFFFBEA, dark: 0x22251F)
+    static let panelAlt = adaptive(light: 0xF8F3D9, dark: 0x22251F)
     static let cream = adaptive(light: 0x504B38, dark: 0xF8F3D9)
     static let muted = adaptive(light: 0x716B54, dark: 0xCDC7A6)
     static let olive = adaptive(light: 0xB9B28A, dark: 0xB9B28A)
