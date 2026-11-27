@@ -43,8 +43,12 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         val filter = IntentFilter(TvReceiverService.ACTION_STATUS)
-        if (Build.VERSION.SDK_INT >= 33) registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        else @Suppress("DEPRECATION") registerReceiver(statusReceiver, filter)
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(statusReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(statusReceiver, filter)
+        }
         refreshUi()
     }
 
