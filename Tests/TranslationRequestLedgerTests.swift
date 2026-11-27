@@ -237,27 +237,39 @@ final class TranslationRequestLedgerTests: XCTestCase {
 			XCTAssertEqual(rect.height, 281.25, accuracy: 0.01)
 		}
 
-        func testOCRCropCoordinatesMapBackToOriginalFrameWithoutHorizontalMirroring() {
+        func testDisplayedRightAndLeftCropRegionsMapToOppositePixelBufferSides() {
+            let displayedRight = CaptureRegion(x: 0.7, y: 0.1, width: 0.2, height: 0.4)
+            let rightSource = OCRCoordinateMapper.sourcePixelBufferRegion(for: displayedRight)
+            XCTAssertEqual(rightSource.x, 0.1, accuracy: 0.0001)
+            XCTAssertEqual(rightSource.y, 0.1, accuracy: 0.0001)
+            XCTAssertEqual(rightSource.width, 0.2, accuracy: 0.0001)
+
+            let displayedLeft = CaptureRegion(x: 0.1, y: 0.1, width: 0.2, height: 0.4)
+            let leftSource = OCRCoordinateMapper.sourcePixelBufferRegion(for: displayedLeft)
+            XCTAssertEqual(leftSource.x, 0.7, accuracy: 0.0001)
+        }
+
+        func testOCRCropCoordinatesMapBackToDisplayedFrameWithHorizontalMirroring() {
             let fullScreen = CaptureRegion.fullScreen
-            let leftText = OCRCoordinateMapper.fullFrameRect(
+            let textFromPixelBufferLeft = OCRCoordinateMapper.fullFrameRect(
                 for: CGRect(x: 0.08, y: 0.2, width: 0.12, height: 0.06),
                 in: fullScreen
             )
-            XCTAssertEqual(leftText.minX, 0.08, accuracy: 0.0001)
-            XCTAssertEqual(leftText.minY, 0.2, accuracy: 0.0001)
+            XCTAssertEqual(textFromPixelBufferLeft.minX, 0.8, accuracy: 0.0001)
+            XCTAssertEqual(textFromPixelBufferLeft.minY, 0.2, accuracy: 0.0001)
 
-            let rightText = OCRCoordinateMapper.fullFrameRect(
+            let textFromPixelBufferRight = OCRCoordinateMapper.fullFrameRect(
                 for: CGRect(x: 0.78, y: 0.2, width: 0.12, height: 0.06),
                 in: fullScreen
             )
-            XCTAssertEqual(rightText.minX, 0.78, accuracy: 0.0001)
+            XCTAssertEqual(textFromPixelBufferRight.minX, 0.1, accuracy: 0.0001)
 
             let crop = CaptureRegion(x: 0.2, y: 0.1, width: 0.5, height: 0.4)
             let mapped = OCRCoordinateMapper.fullFrameRect(
                 for: CGRect(x: 0.1, y: 0.25, width: 0.2, height: 0.1),
                 in: crop
             )
-            XCTAssertEqual(mapped.minX, 0.25, accuracy: 0.0001)
+            XCTAssertEqual(mapped.minX, 0.55, accuracy: 0.0001)
             XCTAssertEqual(mapped.minY, 0.2, accuracy: 0.0001)
             XCTAssertEqual(mapped.width, 0.1, accuracy: 0.0001)
             XCTAssertEqual(mapped.height, 0.04, accuracy: 0.0001)
