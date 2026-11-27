@@ -64,6 +64,8 @@ struct SettingsView: View {
 	@Environment(SettingsStore.self) private var store
 	@Environment(ConsoleStore.self) private var consoles
 	@Environment(TranslationHistoryStore.self) private var translationHistory
+	@Environment(TVLinkPublisher.self) private var tvLinkPublisher
+	@State private var showTVLinkSetup = false
 	@Environment(\.dismiss) private var dismiss
 
 	var body: some View {
@@ -72,6 +74,23 @@ struct SettingsView: View {
 			Form {
 					StreamSettingsForm(settings: $store.settings)
 					TranslationSettingsForm(settings: $store.settings)
+
+                Section("التلفاز") {
+                    Button {
+                        showTVLinkSetup = true
+                    } label: {
+                        HStack {
+                            Label("Orion TV Mode", systemImage: "tv")
+                            Spacer()
+                            Text(tvLinkPublisher.isConnected ? "متصل" : "إعداد الربط")
+                                .font(.footnote)
+                                .foregroundStyle(tvLinkPublisher.isConnected ? .green : .secondary)
+                        }
+                    }
+                    Text("اربط iPad بتطبيق Orion TV لإرسال الترجمات ومواقعها إلى التلفاز.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
 
                 Section {
                     NavigationLink {
@@ -109,6 +128,9 @@ struct SettingsView: View {
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
 					ToolbarItem(placement: .confirmationAction) { Button("تم") { dismiss() } }
+			}
+			.sheet(isPresented: $showTVLinkSetup) {
+				TVLinkSetupView(publisher: tvLinkPublisher)
 			}
 		}
 	}

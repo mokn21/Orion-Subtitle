@@ -11,6 +11,7 @@ struct StreamView: View {
 
 	@Environment(SettingsStore.self) private var settingsStore
 	@Environment(TranslationHistoryStore.self) private var translationHistory
+	@Environment(TVLinkPublisher.self) private var tvLinkPublisher
 	@Environment(\.dismiss) private var dismiss
 	@Environment(\.scenePhase) private var scenePhase
 		@State private var session: StreamSession?
@@ -34,7 +35,6 @@ struct StreamView: View {
 	@State private var showPSButton = false
 	@State private var showTranslationDiagnostics = false
 	@State private var showTVLinkSetup = false
-	@State private var tvLinkPublisher = TVLinkPublisher()
 	@State private var showRegionEditor = false
     @State private var showSecondRegionEditor = false
 	@State private var showQuickBar = false
