@@ -24,14 +24,14 @@ final class OCRService {
         let extent = fullImage.extent
         guard extent.width > 0, extent.height > 0 else { return nil }
         // The displayed Remote Play frame is horizontally mirrored relative to
-        // the CIImage pixel-buffer coordinate space. Convert the user's visual
-        // left-to-right selection into the source buffer's horizontal coordinates.
-        let sourceRegionX = 1 - selectedRegion.x - selectedRegion.width
+        // the CIImage pixel-buffer coordinate space. Convert the visual selection
+        // before cropping so the selected on-screen side is the side OCR reads.
+        let sourceRegion = OCRCoordinateMapper.sourcePixelBufferRegion(for: selectedRegion)
         let cropRect = CGRect(
-            x: extent.minX + CGFloat(sourceRegionX) * extent.width,
-            y: extent.minY + CGFloat(selectedRegion.y) * extent.height,
-            width: CGFloat(selectedRegion.width) * extent.width,
-            height: CGFloat(selectedRegion.height) * extent.height
+            x: extent.minX + CGFloat(sourceRegion.x) * extent.width,
+            y: extent.minY + CGFloat(sourceRegion.y) * extent.height,
+            width: CGFloat(sourceRegion.width) * extent.width,
+            height: CGFloat(sourceRegion.height) * extent.height
         ).intersection(extent)
         guard !cropRect.isNull, cropRect.width >= 1, cropRect.height >= 1 else { return nil }
 
