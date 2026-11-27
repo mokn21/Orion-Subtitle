@@ -70,7 +70,18 @@ final class TVLinkPublisher {
     func disconnect() {
         publishTask?.cancel()
         publishTask = nil
-        connection?.cancel()
+        if let activeConnection = connection, isConnected,
+           var data = try? JSONSerialization.data(
+               withJSONObject: ["type": "subtitle.clearAll"],
+               options: [.sortedKeys]
+           ) {
+            data.append(0x0A)
+            activeConnection.send(content: data, completion: .contentProcessed { _ in
+                activeConnection.cancel()
+            })
+        } else {
+            connection?.cancel()
+        }
         connection = nil
         isConnected = false
         sentIDs.removeAll()
@@ -81,6 +92,16 @@ final class TVLinkPublisher {
     func update(_ entries: [TranslationEntry]) {
         latestEntries = entries
         guard isConnected else { return }
+
+        // Clear captions as soon as the source OCR entry disappears. Do not
+        // wait for the coalesced show/update batch, which is only for captions
+        // that are still present on screen.
+        let currentIDs = Set(entries.map { $0.id.uuidString })
+        let removedIDs = sentIDs.subtracting(currentIDs)
+        for id in removedIDs {
+            send(["type": "subtitle.clear", "id": id])
+        }
+        sentIDs.subtract(removedIDs)
         schedulePublish()
     }
 
