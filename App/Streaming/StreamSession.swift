@@ -287,7 +287,7 @@ final class StreamSession {
         latestFrame = frame
         if !loggedFirstFrameOnMain {
             loggedFirstFrameOnMain = true
-            log.notice("Remote Play first latestFrame update on MainActor attempt=\(activeAttemptID?.uuidString ?? "none", privacy: .public)")
+            log.notice("Remote Play first latestFrame update on MainActor attempt=\(self.activeAttemptID?.uuidString ?? "none", privacy: .public)")
         }
         translationCoordinator.submit(pixelBuffer: frame)
     }

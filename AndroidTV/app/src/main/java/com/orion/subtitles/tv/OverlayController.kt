@@ -13,6 +13,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.TypedValue
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 
 class OverlayController(private val context: Context) {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
@@ -22,6 +23,8 @@ class OverlayController(private val context: Context) {
     private val entryBackgroundColors = ConcurrentHashMap<String, Int>()
     private val lastTouchedAt = ConcurrentHashMap<String, Long>()
     private val maximumActiveOverlays = 24
+    // Invalidate queued show/keep work immediately when a connection is cleared.
+    private val clearGeneration = AtomicLong(0)
 
     @Volatile private var textColor = Color.WHITE
     @Volatile private var backgroundColor = Color.BLACK
@@ -43,7 +46,9 @@ class OverlayController(private val context: Context) {
         val rect = OverlayGeometry.toScreenRect(
             x, y, width, height, metrics.widthPixels, metrics.heightPixels
         ) ?: return
+        val requestGeneration = clearGeneration.get()
         handler.post {
+            if (requestGeneration != clearGeneration.get()) return@post
             val existing = views[id]
             if (existing == null && views.size >= maximumActiveOverlays) {
                 lastTouchedAt.minByOrNull { it.value }?.key?.let(::removeNow)
@@ -104,7 +109,9 @@ class OverlayController(private val context: Context) {
     }
 
     fun keep(id: String, ttlMs: Long = 3000L) {
+        val requestGeneration = clearGeneration.get()
         handler.post {
+            if (requestGeneration != clearGeneration.get()) return@post
             if (views.containsKey(id)) {
                 lastTouchedAt[id] = android.os.SystemClock.elapsedRealtime()
                 scheduleExpiry(id, ttlMs)
@@ -117,8 +124,16 @@ class OverlayController(private val context: Context) {
     }
 
     fun clearAll() {
+        // Bump before posting: any stale show/keep messages already queued on
+        // the main thread become no-ops, so disconnect cleanup cannot be
+        // undone by a delayed subtitle update from the old connection.
+        clearGeneration.incrementAndGet()
         handler.post {
+            expiryTasks.values.forEach(handler::removeCallbacks)
+            expiryTasks.clear()
             views.keys.toList().forEach(::removeNow)
+            entryBackgroundColors.clear()
+            lastTouchedAt.clear()
         }
     }
 
