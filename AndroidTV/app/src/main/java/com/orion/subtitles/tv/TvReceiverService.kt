@@ -15,6 +15,8 @@ class TvReceiverService : Service() {
         const val ACTION_START = "com.orion.subtitles.tv.START"
         const val ACTION_TEST = "com.orion.subtitles.tv.TEST"
         const val ACTION_STOP = "com.orion.subtitles.tv.STOP"
+        const val ACTION_STATUS = "com.orion.subtitles.tv.STATUS"
+        const val EXTRA_STATUS = "status"
         private const val CHANNEL_ID = "orion_tv_receiver"
         private const val NOTIFICATION_ID = 4107
     }
@@ -39,8 +41,14 @@ class TvReceiverService : Service() {
         return START_STICKY
     }
 
+    private fun publishStatus(status: String) {
+        getSharedPreferences("orion_tv", MODE_PRIVATE).edit().putString("receiver_status", status).apply()
+        sendBroadcast(Intent(ACTION_STATUS).setPackage(packageName).putExtra(EXTRA_STATUS, status))
+    }
+
     private fun startReceiverIfNeeded() {
         if (!Settings.canDrawOverlays(this)) {
+            publishStatus("صلاحية العرض فوق التطبيقات غير مفعّلة")
             stopSelf()
             return
         }
@@ -69,11 +77,14 @@ class TvReceiverService : Service() {
         overlay = OverlayController(this)
         val pairing = PairingInfo.current(this)
         if (pairing == null) {
+            publishStatus("تعذر تحديد عنوان التلفزيون")
             stopSelf()
             return
         }
+        publishStatus("المستقبل يعمل — بانتظار اتصال الآيباد")
         server = TvTcpServer(pairing.token, overlay!!) { status ->
             android.util.Log.i("OrionTvService", status)
+            publishStatus(status)
         }.also { it.start() }
     }
 
@@ -97,6 +108,7 @@ class TvReceiverService : Service() {
             @Suppress("DEPRECATION")
             stopForeground(true)
         }
+        publishStatus("المستقبل متوقف")
         super.onDestroy()
     }
 }
