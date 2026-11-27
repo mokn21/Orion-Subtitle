@@ -124,7 +124,10 @@ struct SettingsView: View {
 						Text("يحتوي التقرير على طراز iPad وتفاصيل الشاشة والإعدادات وسجلات التطبيق منذ فتحه. تُحذف عناوين IP والمفاتيح ومعرّفات الحساب وأسماء الأجهزة. شاركه قبل إغلاق التطبيق حتى تغطي السجلات المشكلة.")
 				}
 			}
-				.navigationTitle("الإعدادات")
+				 .scrollContentBackground(.hidden)
+            .background(OrionPalette.background)
+            .tint(OrionPalette.olive)
+			.navigationTitle("الإعدادات")
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
 					ToolbarItem(placement: .confirmationAction) { Button("تم") { dismiss() } }

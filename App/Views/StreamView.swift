@@ -8,6 +8,7 @@ import Translation
 struct StreamView: View {
 	let console: Console
 	let startInBlackMode: Bool
+	let startInControlMode: Bool
 
 	@Environment(SettingsStore.self) private var settingsStore
 	@Environment(TranslationHistoryStore.self) private var translationHistory
@@ -30,7 +31,7 @@ struct StreamView: View {
 	@State private var portrait = false
 	@State private var windowSize: CGSize = .zero
 	/// No controller connected yet; we ask before connecting (there are no on-screen controls)
-	@State private var needsController = !Self.hasController
+	@State private var needsController: Bool
 	@State private var showSettingsHint = false
 	@State private var showPSButton = false
 	@State private var showTranslationDiagnostics = false
@@ -45,10 +46,12 @@ struct StreamView: View {
 	@State private var showHeatWarning = false
 	@State private var blackTranslationMode: Bool
 
-	init(console: Console, startInBlackMode: Bool = false) {
+	init(console: Console, startInBlackMode: Bool = false, startInControlMode: Bool = false) {
 		self.console = console
 		self.startInBlackMode = startInBlackMode
+        self.startInControlMode = startInControlMode
 		_blackTranslationMode = State(initialValue: startInBlackMode)
+        _needsController = State(initialValue: !Self.hasController && !startInControlMode)
 	}
 	/// The corner hints show once per stream screen, not again after a reconnect
 	@State private var hintShown = false
@@ -157,7 +160,9 @@ struct StreamView: View {
 		ZStack {
 			Color.black.ignoresSafeArea()
 
-				if blackTranslationMode, let session {
+				if startInControlMode {
+                    controlOnlyDashboard(for: session)
+                } else if blackTranslationMode, let session {
 					blackTranslationScreen(for: session)
 				} else if let session, let renderer = session.renderer {
 				MetalStreamView(
@@ -171,7 +176,7 @@ struct StreamView: View {
 				.ignoresSafeArea()
 			}
 
-					if let session {
+					if let session, !startInControlMode {
 						overlay(for: session)
 						if !blackTranslationMode {
 							translationOverlay(for: session)
@@ -182,27 +187,27 @@ struct StreamView: View {
 					blackModeToolbar(for: session)
 				}
 
-			if showSettingsHint && !showMenuButton {
+			if showSettingsHint && !showMenuButton && !startInControlMode {
 				settingsHint
 					.transition(.opacity)
 			}
 
-			if showMenuButton {
+			if showMenuButton && !startInControlMode {
 				menuButton
 					.transition(.opacity)
 			}
 
-			if showPSButton {
+			if showPSButton && !startInControlMode {
 				psButton
 					.transition(.opacity)
 			}
 
-				if showHeatWarning {
+				if showHeatWarning && !startInControlMode {
 					heatWarning
 						.transition(.opacity)
 				}
 
-				if showQuickBar, let session {
+				if showQuickBar, let session, !startInControlMode {
 					quickToolbar(for: session)
 						.transition(.move(edge: .top).combined(with: .opacity))
 				}
@@ -424,6 +429,94 @@ struct StreamView: View {
 			withAnimation(.easeIn(duration: 0.25)) { showQuickBar = false }
 		}
 	}
+
+    private func controlOnlyDashboard(for session: StreamSession?) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                HStack(spacing: 12) {
+                    Image(systemName: "captions.bubble.fill").font(.system(size: 30)).foregroundStyle(OrionPalette.cream)
+                        .frame(width: 58, height: 58).background(OrionPalette.panelAlt, in: RoundedRectangle(cornerRadius: 16))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("ORION CONTROL").font(.headline.weight(.bold)).tracking(1.5).foregroundStyle(OrionPalette.cream)
+                        Text("وضع التحكم فقط").font(.caption).foregroundStyle(OrionPalette.muted)
+                    }
+                    Spacer()
+                    Circle().fill(tvLinkPublisher.isConnected ? Color.green : OrionPalette.olive).frame(width: 9, height: 9)
+                    Text(tvLinkPublisher.isConnected ? "التلفاز متصل" : "جاهز للربط").font(.caption).foregroundStyle(OrionPalette.muted)
+                }
+                .padding(18).background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 20))
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("إدارة الترجمة").font(.title3.bold()).foregroundStyle(OrionPalette.cream)
+                    Text("تستمر معالجة Remote Play في الخلفية، لكن صورة اللعبة لا تظهر على هذه الشاشة.")
+                        .font(.subheadline).foregroundStyle(OrionPalette.muted)
+                }
+
+                if let session {
+                    HStack(spacing: 10) {
+                        controlActionCard(
+                            title: session.translationCoordinator.state == .running ? "إيقاف OCR مؤقتًا" : "استئناف OCR",
+                            subtitle: session.translationCoordinator.state == .running ? "إيقاف قراءة النص" : "متابعة قراءة النص",
+                            icon: session.translationCoordinator.state == .running ? "pause.fill" : "play.fill"
+                        ) {
+                            if session.translationCoordinator.state == .running { session.translationCoordinator.pause() }
+                            else { session.translationCoordinator.start() }
+                        }
+                        controlActionCard(title: "قص المنطقة", subtitle: "تحديد مساحة قراءة النص", icon: "crop") {
+                            showRegionEditor = true
+                        }
+                    }
+                    HStack(spacing: 10) {
+                        controlActionCard(title: "المنطقة الثانية", subtitle: "إعداد منطقة OCR إضافية", icon: "viewfinder") {
+                            if session.translationCoordinator.secondaryEnabled { showSecondRegionEditor = true }
+                        }
+                        .opacity(session.translationCoordinator.secondaryEnabled ? 1 : 0.55)
+                        controlActionCard(title: "إعداد التلفاز", subtitle: tvLinkPublisher.status, icon: "tv") {
+                            showTVLinkSetup = true
+                        }
+                    }
+                    HStack {
+                        Label(session.state == .streaming ? "جلسة PS5 تعمل" : "جارٍ الاتصال بـ PS5", systemImage: "gamecontroller")
+                        Spacer()
+                        Text("\(session.translationCoordinator.visibleEntries.count) ترجمات ظاهرة")
+                    }
+                    .font(.caption).foregroundStyle(OrionPalette.muted)
+                    .padding(14).background(OrionPalette.panelAlt, in: RoundedRectangle(cornerRadius: 14))
+                } else {
+                    ProgressView("جارٍ تجهيز جلسة Remote Play…").tint(OrionPalette.olive).foregroundStyle(OrionPalette.cream)
+                        .padding(20).frame(maxWidth: .infinity).background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 18))
+                }
+
+                Button(role: .destructive) {
+                    stop()
+                    dismiss()
+                } label: {
+                    Label("إيقاف الجلسة", systemImage: "stop.fill")
+                        .font(.headline).frame(maxWidth: .infinity).padding(16)
+                        .background(OrionPalette.stroke, in: RoundedRectangle(cornerRadius: 15))
+                        .foregroundStyle(OrionPalette.cream)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(24).frame(maxWidth: 820).frame(maxWidth: .infinity)
+        }
+        .background(OrionPalette.background.ignoresSafeArea())
+        .environment(\.layoutDirection, .rightToLeft)
+    }
+
+    private func controlActionCard(title: String, subtitle: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 9) {
+                Image(systemName: icon).font(.title2).foregroundStyle(OrionPalette.olive)
+                Text(title).font(.headline).foregroundStyle(OrionPalette.cream)
+                Text(subtitle).font(.caption).foregroundStyle(OrionPalette.muted).lineLimit(2)
+            }
+            .frame(maxWidth: .infinity, minHeight: 100, alignment: .leading)
+            .padding(15).background(OrionPalette.panel, in: RoundedRectangle(cornerRadius: 17))
+            .overlay(RoundedRectangle(cornerRadius: 17).stroke(OrionPalette.stroke, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
 
 	private func quickToolbar(for session: StreamSession) -> some View {
 		HStack(spacing: 8) {

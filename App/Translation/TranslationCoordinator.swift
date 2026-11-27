@@ -210,9 +210,12 @@ final class TranslationCoordinator {
 		private func acceptOCR(_ result: OCRResult) {
 			let observations = result.observations.filter { !Self.normalize($0.text).isEmpty }
 			guard !observations.isEmpty else {
-				skippedFrames += 1
-				return
-			}
+                skippedFrames += 1
+                // Clear captions after an empty OCR frame instead of leaving
+                // their last successful translation visible indefinitely.
+                pruneExpiredVisibleEntries()
+                return
+            }
         // Keep translated overlays attached to the latest OCR box. Small
         // per-frame Vision jitter must not invalidate a stable translation.
         refreshVisibleEntryGeometry(with: observations)

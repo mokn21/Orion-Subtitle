@@ -1,17 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="320dp"
-    android:height="180dp"
-    android:viewportWidth="320"
-    android:viewportHeight="180">
+    android:width="320dp" android:height="180dp"
+    android:viewportWidth="320" android:viewportHeight="180">
     <path android:fillColor="#504B38" android:pathData="M0,0h320v180h-320z" />
-    <path android:strokeColor="#B9B28A" android:strokeWidth="7" android:strokeLineCap="round" android:fillColor="#00000000"
-        android:pathData="M24,91 C43,25 140,20 163,75 C184,128 108,164 51,130 C23,113 14,78 31,53" />
-    <path android:strokeColor="#F8F3D9" android:strokeWidth="6" android:strokeLineCap="round" android:fillColor="#00000000"
-        android:pathData="M31,127 C57,165 143,148 157,99 C172,51 115,20 68,43 C50,52 38,67 31,80" />
-    <path android:fillColor="#F8F3D9" android:pathData="M94,55 L104,79 L128,89 L104,99 L94,123 L84,99 L60,89 L84,79 Z" />
-    <path android:fillColor="#F8F3D9" android:pathData="M58,126 H130 Q137,126 137,133 V148 Q137,155 130,155 H58 Q51,155 51,148 V133 Q51,126 58,126 Z" />
-    <path android:fillColor="#504B38" android:pathData="M65,132 H123 V138 H65 Z M75,143 H113 V149 H75 Z" />
-    <path android:fillColor="#F8F3D9" android:pathData="M185,57 H300 V66 H185 Z M185,77 H275 V82 H185 Z" />
-    <path android:fillColor="#B9B28A" android:pathData="M185,101 H294 V105 H185 Z" />
+    <path android:strokeColor="#B9B28A" android:strokeWidth="10" android:strokeLineCap="round" android:fillColor="#00000000"
+        android:pathData="M35,116 C50,44 124,21 165,58 C205,94 158,149 102,145 C59,142 29,122 35,91" />
+    <path android:fillColor="#F8F3D9" android:pathData="M111,24 L120,47 L143,56 L120,65 L111,88 L102,65 L79,56 L102,47 Z" />
+    <path android:fillColor="#F8F3D9" android:pathData="M190,48 H296 V59 H190 Z M190,76 H278 V86 H190 Z M190,104 H296 V114 H190 Z" />
+    <path android:fillColor="#B9B28A" android:pathData="M190,132 H257 V141 H190 Z" />
 </vector>
