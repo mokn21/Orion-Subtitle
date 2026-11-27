@@ -252,7 +252,7 @@ struct StreamView: View {
 				self.translationBridge = session.translationCoordinator.appleTranslationBridge
 				self.session = session
 			session.start()
-			session.setTranslationBlackMode(startInBlackMode)
+			session.setTranslationBlackMode(startInBlackMode || startInControlMode)
 			session.translationCoordinator.start()
 		lifecycleGate.markActive(attemptID)
 		}
