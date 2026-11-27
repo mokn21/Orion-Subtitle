@@ -74,7 +74,7 @@ class MainActivity : Activity() {
             layoutDirection = View.LAYOUT_DIRECTION_LTR
         }
         val logo = ImageView(this).apply {
-            setImageResource(com.orion.subtitles.tv.R.drawable.ic_orion_launcher)
+            setImageResource(com.orion.subtitles.tv.R.drawable.orion_tv_app_icon)
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
         header.addView(logo, LinearLayout.LayoutParams(dp(62), dp(62)))
