@@ -159,7 +159,7 @@ private struct TranslationSettingsForm: View {
 				Text("منطقة الالتقاط — اسحب القيم لتحديد المستطيل داخل إطار Remote Play")
 			RegionSlider(title: "أفقيًا", value: $settings.translationRegion.x, range: 0...max(0, 1 - settings.translationRegion.width))
 			RegionSlider(title: "عموديًا", value: $settings.translationRegion.y, range: 0...max(0, 1 - settings.translationRegion.height))
-			RegionSlider(title: "العرض", value: Binding(
+			RegionSlider(title: "عرض المنطقة", value: Binding(
                 get: { settings.translationRegion.width },
                 set: { width in
                     settings.translationRegion.width = width
