@@ -283,12 +283,12 @@ class MainActivity : Activity() {
     private fun dp(value: Float) = (value * resources.displayMetrics.density).toInt()
 
     companion object {
-        private const val BG = Color.rgb(25, 27, 24)
-        private const val PANEL = Color.rgb(43, 46, 39)
-        private const val PANEL_ALT = Color.rgb(34, 37, 31)
-        private const val CREAM = Color.rgb(248, 243, 217)
-        private const val MUTED = Color.rgb(205, 199, 166)
-        private const val OLIVE = Color.rgb(185, 178, 138)
-        private const val STROKE = Color.rgb(80, 75, 56)
+        private val BG = Color.rgb(25, 27, 24)
+        private val PANEL = Color.rgb(43, 46, 39)
+        private val PANEL_ALT = Color.rgb(34, 37, 31)
+        private val CREAM = Color.rgb(248, 243, 217)
+        private val MUTED = Color.rgb(205, 199, 166)
+        private val OLIVE = Color.rgb(185, 178, 138)
+        private val STROKE = Color.rgb(80, 75, 56)
     }
 }
