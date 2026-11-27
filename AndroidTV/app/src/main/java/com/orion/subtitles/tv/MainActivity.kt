@@ -62,7 +62,7 @@ class MainActivity : Activity() {
 
         receiverStatus = label("حالة المستقبل: متوقف", 16f, Color.WHITE, false)
         content.addView(receiverStatus)
-        content.addView(label("اربط الآيباد بنفس شبكة التلفاز، ثم امسح رمز الاقتران من داخل Orion على الآيباد.", 15f, Color.rgb(235, 229, 194), false))
+        content.addView(label("اربط الآيباد والتلفاز بالشبكة نفسها، ثم أدخل عنوان IP والمنفذ ورمز الاقتران الظاهرين أدناه في TV Mode على الآيباد.", 15f, Color.rgb(235, 229, 194), false))
 
         qrImage = ImageView(this).apply {
             adjustViewBounds = true
