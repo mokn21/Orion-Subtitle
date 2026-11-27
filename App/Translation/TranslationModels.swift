@@ -72,8 +72,6 @@ struct OCRResult: Equatable {
 
 enum VideoCoordinateMapper {
     /// Maps Vision's normalized bottom-left rectangle to the displayed video.
-    /// The video is aspect-fitted inside the supplied view, so unused area is
-    /// treated as letterboxing and excluded from the returned rectangle.
     static func displayRect(
         for visionRect: CGRect,
         in viewSize: CGSize,
@@ -100,27 +98,25 @@ enum VideoCoordinateMapper {
             width: visionRect.width * videoSize.width,
             height: visionRect.height * videoSize.height
         )
-    /// Converts a displayed capture region to the horizontally mirrored
-/// pixel-buffer region used by the Remote Play decoder.
+    }
+}
+
+/// Maps the visible crop directly to the decoded pixel buffer and restores
+/// crop-local Vision boxes to the same unmirrored full-frame coordinate space.
 enum OCRCoordinateMapper {
-    /// The decoded pixel buffer and the Metal preview share the same left-to-right
-    /// orientation. Never mirror a user's visual crop selection.
     static func sourcePixelBufferRegion(for displayedRegion: CaptureRegion) -> CaptureRegion {
         displayedRegion.clamped
     }
 
-    /// Converts a crop-local Vision rectangle back to the same unmirrored
-    /// full-frame coordinate space used by the Metal preview and TV publisher.
     static func fullFrameRect(for localVisionRect: CGRect, in captureRegion: CaptureRegion) -> CGRect {
-        let sourceRegion = captureRegion.clamped
+        let region = captureRegion.clamped
         return CGRect(
-            x: CGFloat(sourceRegion.x) + localVisionRect.minX * CGFloat(sourceRegion.width),
-            y: CGFloat(sourceRegion.y) + localVisionRect.minY * CGFloat(sourceRegion.height),
-            width: localVisionRect.width * CGFloat(sourceRegion.width),
-            height: localVisionRect.height * CGFloat(sourceRegion.height)
+            x: CGFloat(region.x) + localVisionRect.minX * CGFloat(region.width),
+            y: CGFloat(region.y) + localVisionRect.minY * CGFloat(region.height),
+            width: localVisionRect.width * CGFloat(region.width),
+            height: localVisionRect.height * CGFloat(region.height)
         )
     }
-}   }
 }
 
 struct TranslationEntry: Identifiable, Equatable {
