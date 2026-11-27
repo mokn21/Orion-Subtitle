@@ -203,7 +203,7 @@ final class TranslationCoordinator {
                     self.latestOCRObservations = []
                     self.lastObservationFingerprint = ""
                     self.nextGeneration &+= 1
-                    self.pruneExpiredVisibleEntries()
+                    self.visibleEntries.removeAll()
                 }
 
                 guard let newestFrame = self.pendingOCRFrame else { break }
@@ -224,9 +224,7 @@ final class TranslationCoordinator {
                 skippedFrames += 1
                 lastObservationFingerprint = ""
                 nextGeneration &+= 1
-                // Clear captions after an empty OCR frame instead of leaving
-                // their last successful translation visible indefinitely.
-                pruneExpiredVisibleEntries()
+                visibleEntries.removeAll()
                 return
             }
         // Keep translated overlays attached to the latest OCR box. Small
@@ -316,7 +314,7 @@ final class TranslationCoordinator {
         guard !visibleEntries.isEmpty else { return }
         var usedObservationIndices = Set<Int>()
 
-        visibleEntries = visibleEntries.map { currentEntry in
+        visibleEntries = visibleEntries.compactMap { currentEntry in
             let key = Self.normalize(currentEntry.sourceText)
             let candidates = observations.indices.filter {
                 guard !usedObservationIndices.contains($0),
@@ -337,13 +335,14 @@ final class TranslationCoordinator {
                 let rightDY = right.midY - old.midY
                 return leftDX * leftDX + leftDY * leftDY < rightDX * rightDX + rightDY * rightDY
             }) else {
-                return currentEntry
+                return nil
             }
 
             usedObservationIndices.insert(bestIndex)
             var updated = currentEntry
             updated.boundingBox = observations[bestIndex].boundingBox
             updated.confidence = observations[bestIndex].confidence
+            updated.backgroundColorHex = observations[bestIndex].backgroundColorHex
             updated.lastSeenAt = Date()
             return updated
         }
@@ -384,6 +383,7 @@ final class TranslationCoordinator {
 	            translatedText: translated,
 	            boundingBox: currentObservation.boundingBox,
 	            confidence: currentObservation.confidence,
+	            backgroundColorHex: currentObservation.backgroundColorHex,
 	            metrics: LatencyMetrics(
 	                capturedAt: result.capturedAt,
 	                ocrStartedAt: result.startedAt,
@@ -411,6 +411,7 @@ final class TranslationCoordinator {
                 var updated = visibleEntries[index]
                 updated.boundingBox = entry.boundingBox
                 updated.confidence = entry.confidence
+                updated.backgroundColorHex = entry.backgroundColorHex
                 updated.lastSeenAt = Date()
                 visibleEntries[index] = updated
                 latestEntry = updated
