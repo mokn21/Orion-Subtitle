@@ -23,8 +23,10 @@ final class OCRService {
         let fullImage = CIImage(cvPixelBuffer: pixelBuffer)
         let extent = fullImage.extent
         guard extent.width > 0, extent.height > 0 else { return nil }
-        // CaptureRegion, CIImage and Vision use the same unmirrored frame space.
-        let sourceRegionX = selectedRegion.x
+        // The displayed Remote Play frame is horizontally mirrored relative to
+        // the CIImage pixel-buffer coordinate space. Convert the user's visual
+        // left-to-right selection into the source buffer's horizontal coordinates.
+        let sourceRegionX = 1 - selectedRegion.x - selectedRegion.width
         let cropRect = CGRect(
             x: extent.minX + CGFloat(sourceRegionX) * extent.width,
             y: extent.minY + CGFloat(selectedRegion.y) * extent.height,
