@@ -12,7 +12,7 @@
     <application
         android:allowBackup="false"
         android:banner="@drawable/orion_tv_banner_exact"
-        android:icon="@drawable/ic_orion_launcher"
+        android:icon="@drawable/orion_tv_app_icon"
         android:label="Orion Subtitles TV"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
