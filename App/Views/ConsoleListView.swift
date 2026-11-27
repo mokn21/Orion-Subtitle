@@ -155,8 +155,13 @@ struct ConsoleListView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("أجهزتك").font(.title2.weight(.bold)).foregroundStyle(OrionPalette.cream)
-                    Text(store.consoles.isEmpty ? "اربط جهاز PlayStation للبدء" : "\(store.consoles.count) أجهزة مرتبطة")
-                        .font(.caption).foregroundStyle(OrionPalette.muted)
+                    if store.consoles.isEmpty {
+                        Text("اربط جهاز PlayStation للبدء")
+                            .font(.caption).foregroundStyle(OrionPalette.muted)
+                    } else {
+                        Text("\(store.consoles.count) أجهزة مرتبطة")
+                            .font(.caption).foregroundStyle(OrionPalette.muted)
+                    }
                 }
                 Spacer()
                 Button { showingAdd = true } label: {

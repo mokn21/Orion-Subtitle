@@ -22,7 +22,7 @@ struct TranslationModesView: View {
                 modeCard(number: "01", eyebrow: "LIVE PLAY", title: "الترجمة المباشرة",
                     detail: "اللعبة أمامك والترجمة تظهر فوق النص في مكانه.",
                     icon: "play.tv.fill", prominent: true, action: liveAction)
-                modeCard(number: "02", eyebrow: "SUBTITLES", title: "شاشة الترجمة",
+                modeCard(number: "02", eyebrow: "SUBTITLE VIEW", title: "شاشة الترجمة",
                     detail: "واجهة هادئة تركز على النصوص المترجمة فقط.",
                     icon: "captions.bubble.fill", prominent: false, action: blackAction)
                 modeCard(number: "03", eyebrow: "CONTROL", title: "وضع التحكم",
@@ -49,7 +49,7 @@ struct TranslationModesView: View {
                         .foregroundStyle(prominent ? OrionPalette.buttonText : OrionPalette.muted)
                 }
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(eyebrow).font(.system(size: 9, weight: .bold)).tracking(1.7)
+                    Text(LocalizedStringKey(eyebrow)).font(.system(size: 9, weight: .bold)).tracking(1.7)
                         .foregroundStyle(prominent ? OrionPalette.buttonText.opacity(0.72) : OrionPalette.muted)
                     Text(title).font(.headline.weight(.bold))
                         .foregroundStyle(prominent ? OrionPalette.buttonText : OrionPalette.cream)
