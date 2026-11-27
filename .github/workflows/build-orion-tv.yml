@@ -10,6 +10,7 @@ on:
       - "Shared/**"
       - ".github/workflows/build-orion-tv.yml"
 
+# The release asset is intentionally public so Downloader on Android TV can fetch it.
 permissions:
   contents: write
 
