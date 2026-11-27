@@ -39,10 +39,10 @@ struct TVLinkSetupView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                     Text("يرسل Orion النص العربي وموقعه فقط؛ لا يرسل صورة اللعبة أو صوتها.")
+                        .font(.footnote)
                     if let pairingError {
                         Text(pairingError).font(.footnote).foregroundStyle(.red)
                     }
-                        .font(.footnote)
                 }
 
                 Section("حالة الاتصال") {
