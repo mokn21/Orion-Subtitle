@@ -719,7 +719,7 @@ struct StreamView: View {
 						ForEach(entries) { entry in
 							let frame = spatialFrame(for: entry.boundingBox, in: geo.size, mode: session.settings.displayMode)
                             ZStack {
-                                RoundedRectangle(cornerRadius: 2).fill(Color.black)
+                                RoundedRectangle(cornerRadius: 2).fill(subtitleBackgroundColor(entry.backgroundColorHex))
                                 Text(entry.translatedText)
                                     .font(.system(
                                         size: min(session.settings.translationFontSize, max(7, frame.height * 0.68)),
@@ -750,7 +750,13 @@ struct StreamView: View {
 
 			/// Converts Vision's bottom-left normalized coordinates into the displayed
 			/// 16:9 video rectangle, including iPad letterboxing.
-			private func spatialFrame(for visionRect: CGRect, in size: CGSize, mode: DisplayMode) -> CGRect {
+			private func subtitleBackgroundColor(_ hex: String) -> Color {
+                let value = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
+                guard let rgb = UInt32(value, radix: 16) else { return .black }
+                return Color(.sRGB, red: Double((rgb >> 16) & 255) / 255, green: Double((rgb >> 8) & 255) / 255, blue: Double(rgb & 255) / 255, opacity: 1)
+            }
+
+            private func spatialFrame(for visionRect: CGRect, in size: CGSize, mode: DisplayMode) -> CGRect {
                 VideoCoordinateMapper.displayRect(for: visionRect, in: size, mode: mode)
             }
 
