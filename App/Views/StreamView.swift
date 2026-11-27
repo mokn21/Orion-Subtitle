@@ -1,5 +1,6 @@
 import GameController
 import SwiftUI
+import Observation
 #if canImport(Translation)
 import Translation
 #endif
@@ -32,6 +33,8 @@ struct StreamView: View {
 	@State private var showSettingsHint = false
 	@State private var showPSButton = false
 	@State private var showTranslationDiagnostics = false
+	@State private var showTVLinkSetup = false
+	@State private var tvLinkPublisher = TVLinkPublisher()
 	@State private var showRegionEditor = false
     @State private var showSecondRegionEditor = false
 	@State private var showQuickBar = false
@@ -93,6 +96,9 @@ struct StreamView: View {
 			needsController = false
 			update()
 		}
+		.onChange(of: session?.translationCoordinator.visibleEntries ?? []) { _, _ in publishTVEntries() }
+		.onChange(of: session?.translationCoordinator.secondaryCoordinator?.visibleEntries ?? []) { _, _ in publishTVEntries() }
+		.onChange(of: tvLinkPublisher.isConnected) { _, connected in if connected { publishTVEntries() } }
 		.onChange(of: session?.state == .streaming) { _, streaming in
 			guard streaming, !hintShown else { return }
 			hintShown = true
@@ -107,7 +113,10 @@ struct StreamView: View {
 			.onChange(of: scenePhase) { _, phase in
 			session?.setPaused(phase != .active || folded || portrait)
 		}
-					.sheet(isPresented: $showTranslationDiagnostics) {
+					.sheet(isPresented: $showTVLinkSetup) {
+					TVLinkSetupView(publisher: tvLinkPublisher)
+				}
+				.sheet(isPresented: $showTranslationDiagnostics) {
 					if let session {
 							TranslationDiagnosticsView(coordinator: session.translationCoordinator, bridge: translationBridge)
 					}
@@ -249,6 +258,7 @@ struct StreamView: View {
 				return
 			}
 			log.notice("Stopping Remote Play lifecycle \(stopID.uuidString, privacy: .public) for \(console.name, privacy: .public)")
+				tvLinkPublisher.disconnect()
 				 session?.translationCoordinator.stop()
 				 session?.stop()
 			session = nil
@@ -422,6 +432,9 @@ struct StreamView: View {
                 blackTranslationMode.toggle()
                 session.setTranslationBlackMode(blackTranslationMode)
             }
+			quickTool(tvLinkPublisher.isConnected ? "TV متصل" : "التلفاز", icon: "tv") {
+				showTVLinkSetup = true
+			}
 			quickTool("OCR", icon: session.translationCoordinator.state == .running ? "text.viewfinder" : "text.viewfinder.slash") {
 				if session.translationCoordinator.state == .running {
 					session.translationCoordinator.pause()
@@ -459,6 +472,18 @@ struct StreamView: View {
 		.padding(.top, 12)
 		.padding(.horizontal, 12)
 		.ignoresSafeArea()
+	}
+
+	private func publishTVEntries() {
+		guard let session else {
+			tvLinkPublisher.update([])
+			return
+		}
+		let entries = session.translationCoordinator.visibleEntries +
+			(session.translationCoordinator.secondaryEnabled
+				? (session.translationCoordinator.secondaryCoordinator?.visibleEntries ?? [])
+				: [])
+		tvLinkPublisher.update(entries)
 	}
 
 	private func quickTool(_ title: String, icon: String, action: @escaping () -> Void) -> some View {

@@ -131,7 +131,7 @@ class MainActivity : Activity() {
             qrImage.setImageDrawable(null)
             pairingDetails.text = "لم يتم العثور على عنوان شبكة محلية. تأكد من اتصال التلفاز بالشبكة."
         } else {
-            pairingDetails.text = "عنوان التلفاز: ${pairing.host}\nالمنفذ: ${pairing.port}\nرمز الاقتران محفوظ لهذا الجهاز."
+            pairingDetails.text = "عنوان التلفاز: ${pairing.host}\nالمنفذ: ${pairing.port}\nرمز الاقتران: ${pairing.token}\nأدخل هذه البيانات في TV Mode على الآيباد."
             qrImage.setImageBitmap(createQr(pairing.qrPayload()))
         }
     }
