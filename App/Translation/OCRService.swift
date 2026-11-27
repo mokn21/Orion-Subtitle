@@ -23,9 +23,8 @@ final class OCRService {
         let fullImage = CIImage(cvPixelBuffer: pixelBuffer)
         let extent = fullImage.extent
         guard extent.width > 0, extent.height > 0 else { return nil }
-        // The displayed Remote Play frame is horizontally mirrored relative to
-        // the CIImage pixel-buffer coordinate space. Convert the visual selection
-        // before cropping so the selected on-screen side is the side OCR reads.
+        // MetalRenderer displays the decoded frame without a horizontal flip,
+        // so the visual crop selection maps directly to pixel-buffer coordinates.
         let sourceRegion = OCRCoordinateMapper.sourcePixelBufferRegion(for: selectedRegion)
         let cropRect = CGRect(
             x: extent.minX + CGFloat(sourceRegion.x) * extent.width,

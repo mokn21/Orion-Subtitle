@@ -93,7 +93,7 @@ enum VideoCoordinateMapper {
             y: (viewSize.height - videoSize.height) / 2
         )
         return CGRect(
-            x: origin.x + (1 - visionRect.maxX) * videoSize.width,
+            x: origin.x + visionRect.minX * videoSize.width,
             y: origin.y + (1 - visionRect.maxY) * videoSize.height,
             width: visionRect.width * videoSize.width,
             height: visionRect.height * videoSize.height
@@ -101,21 +101,16 @@ enum VideoCoordinateMapper {
     /// Converts a displayed capture region to the horizontally mirrored
 /// pixel-buffer region used by the Remote Play decoder.
 enum OCRCoordinateMapper {
+    /// The decoded pixel buffer and the Metal preview share the same left-to-right
+    /// orientation. Never mirror a user's visual crop selection.
     static func sourcePixelBufferRegion(for displayedRegion: CaptureRegion) -> CaptureRegion {
-        let region = displayedRegion.clamped
-        return CaptureRegion(
-            x: 1 - region.x - region.width,
-            y: region.y,
-            width: region.width,
-            height: region.height
-        )
+        displayedRegion.clamped
     }
 
-    /// Converts a crop-local Vision rectangle back to pixel-buffer coordinates.
-    /// Keep this space unchanged for the TV publisher; the iPad overlay applies
-    /// its own horizontal display transform in VideoCoordinateMapper.
+    /// Converts a crop-local Vision rectangle back to the same unmirrored
+    /// full-frame coordinate space used by the Metal preview and TV publisher.
     static func fullFrameRect(for localVisionRect: CGRect, in captureRegion: CaptureRegion) -> CGRect {
-        let sourceRegion = sourcePixelBufferRegion(for: captureRegion)
+        let sourceRegion = captureRegion.clamped
         return CGRect(
             x: CGFloat(sourceRegion.x) + localVisionRect.minX * CGFloat(sourceRegion.width),
             y: CGFloat(sourceRegion.y) + localVisionRect.minY * CGFloat(sourceRegion.height),
