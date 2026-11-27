@@ -110,6 +110,7 @@ class TvTcpServer(
             }
             "subtitle.keep" -> overlay.keep(message.optString("id"), message.optLong("ttlMs", 3000L))
             "subtitle.clear" -> overlay.clear(message.optString("id"))
+            "subtitle.clearAll" -> overlay.clearAll()
             "style.set" -> message.optJSONObject("style")?.let(overlay::updateStyle)
             "ping" -> {
                 runCatching {
