@@ -627,7 +627,7 @@ struct StreamView: View {
                                         weight: .semibold
                                     ))
                                     .multilineTextAlignment(.center)
-                                    .environment(\.layoutDirection, .rightToLeft)
+                                    .environment(\.layoutDirection, Locale.current.language.languageCode?.identifier == "ar" ? .rightToLeft : .leftToRight)
                                     .lineLimit(1)
                                     .allowsTightening(true)
                                     .minimumScaleFactor(0.10)
@@ -666,7 +666,7 @@ struct StreamView: View {
 						Text(entry.translatedText)
 							.font(.system(size: session.settings.translationFontSize + 10, weight: .bold))
 							.multilineTextAlignment(.center)
-							.environment(\.layoutDirection, .rightToLeft)
+							.environment(\.layoutDirection, Locale.current.language.languageCode?.identifier == "ar" ? .rightToLeft : .leftToRight)
 							.foregroundStyle(translationColor(session.settings.translationTextColor))
 							ForEach(Array(sortedEntries.dropFirst()), id: \.id) { previous in
 							Text(previous.translatedText)
@@ -684,7 +684,7 @@ struct StreamView: View {
 			.frame(maxWidth: .infinity, maxHeight: .infinity)
 			.padding(40)
 				.background(Color.black.ignoresSafeArea())
-				.environment(\.layoutDirection, .rightToLeft)
+				.environment(\.layoutDirection, Locale.current.language.languageCode?.identifier == "ar" ? .rightToLeft : .leftToRight)
 			}
 
 				private func blackModeToolbar(for session: StreamSession) -> some View {
