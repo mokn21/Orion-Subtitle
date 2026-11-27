@@ -30,6 +30,7 @@ Every message has a string `type`. Unknown message types are ignored for forward
   "type":"subtitle.show",
   "id":"line-uuid",
   "text":"النص العربي",
+  "backgroundColor":"#342A22",
   "rect":{"x":0.12,"y":0.18,"width":0.32,"height":0.08},
   "ttlMs":3000
 }
@@ -41,6 +42,7 @@ Every message has a string `type`. Unknown message types are ignored for forward
 - The iPad restores crop-relative OCR coordinates to full-frame coordinates before publishing.
 - The TV maps the rectangle into its displayed 16:9 video area and converts bottom-left Y to Android's top-left screen coordinates.
 - The overlay uses a cover behind the Arabic text so the original English is obscured.
+- `backgroundColor` is sampled from pixels immediately surrounding the source text; older senders may omit it and the TV falls back to the global style.
 - `subtitle.replace` has the same payload and replaces the existing entry with the same ID.
 
 ### Keep and clear
