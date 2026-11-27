@@ -74,10 +74,10 @@ class MainActivity : Activity() {
             layoutDirection = View.LAYOUT_DIRECTION_LTR
         }
         val logo = ImageView(this).apply {
-            setImageResource(com.orion.subtitles.tv.R.drawable.orion_tv_app_icon)
+            setImageResource(com.orion.subtitles.tv.R.drawable.orion_launcher_icon)
             scaleType = ImageView.ScaleType.FIT_CENTER
         }
-        header.addView(logo, LinearLayout.LayoutParams(dp(62), dp(62)))
+        header.addView(logo, LinearLayout.LayoutParams(dp(88), dp(88)))
         val brand = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), 0, 0, 0)
