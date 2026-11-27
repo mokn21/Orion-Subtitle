@@ -114,7 +114,7 @@ struct StreamView: View {
 				session?.setTranslationBlackMode(enabled)
 			}
 			.onChange(of: scenePhase) { _, phase in
-			session?.setPaused(phase != .active || folded || portrait)
+			session?.setPaused(phase != .active || (!startInControlMode && (folded || portrait)))
 		}
 					.sheet(isPresented: $showTVLinkSetup) {
 					TVLinkSetupView(publisher: tvLinkPublisher)
