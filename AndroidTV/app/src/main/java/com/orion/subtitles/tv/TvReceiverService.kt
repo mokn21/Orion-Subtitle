@@ -34,7 +34,7 @@ class TvReceiverService : Service() {
             }
             ACTION_TEST -> {
                 startReceiverIfNeeded()
-                overlay?.show("orion-tv-test", "اختبار Orion TV", 0.25, 0.40, 0.50, 0.16, 5000)
+                overlay?.show("orion-tv-test", "اختبار Orion TV", 0.25, 0.40, 0.50, 0.16, ttlMs = 5000L)
             }
             else -> startReceiverIfNeeded()
         }
