@@ -102,13 +102,14 @@ enum VideoCoordinateMapper {
 }
 
 
-/// Converts a crop-local Vision rectangle to the original full-frame normalized
-/// coordinate space. Both spaces use a bottom-left origin; no mirroring occurs.
+/// Converts a crop-local Vision rectangle back to the user's displayed frame
+/// coordinates. Remote Play's pixel-buffer X axis is mirrored relative to the
+/// displayed frame, so restore X from the opposite edge of the selected region.
 enum OCRCoordinateMapper {
     static func fullFrameRect(for localVisionRect: CGRect, in captureRegion: CaptureRegion) -> CGRect {
         let region = captureRegion.clamped
         return CGRect(
-            x: CGFloat(region.x) + localVisionRect.minX * CGFloat(region.width),
+            x: CGFloat(region.x) + (1 - localVisionRect.maxX) * CGFloat(region.width),
             y: CGFloat(region.y) + localVisionRect.minY * CGFloat(region.height),
             width: localVisionRect.width * CGFloat(region.width),
             height: localVisionRect.height * CGFloat(region.height)
