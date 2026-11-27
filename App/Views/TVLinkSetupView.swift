@@ -1,5 +1,6 @@
 import SwiftUI
 import VisionKit
+import AVFoundation
 
 struct TVLinkSetupView: View {
     @Environment(\.dismiss) private var dismiss
@@ -92,6 +93,25 @@ struct TVLinkSetupView: View {
                     Button("تم") { dismiss() }
                 }
             }
+        }
+    }
+
+    private func requestScannerPermission() {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            showScanner = true
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                DispatchQueue.main.async {
+                    if granted {
+                        showScanner = true
+                    } else {
+                        pairingError = "اسمح لـ Orion باستخدام الكاميرا من إعدادات iPad لمسح رمز التلفاز."
+                    }
+                }
+            }
+        default:
+            pairingError = "صلاحية الكاميرا غير مفعّلة. اسمح بها من إعدادات iPad أو أدخل بيانات التلفاز يدويًا."
         }
     }
 

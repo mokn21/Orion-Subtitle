@@ -20,7 +20,6 @@ struct TVPairingQRScanner: UIViewControllerRepresentable {
         )
         scanner.delegate = context.coordinator
         DispatchQueue.main.async {
-            guard scanner.isAvailable else { return }
             try? scanner.startScanning()
         }
         return scanner
@@ -47,7 +46,7 @@ struct TVPairingQRScanner: UIViewControllerRepresentable {
                       let payload = barcode.payloadStringValue else { continue }
                 didReturnCode = true
                 dataScanner.stopScanning()
-                onCode(payload)
+                DispatchQueue.main.async { self.onCode(payload) }
                 return
             }
         }
