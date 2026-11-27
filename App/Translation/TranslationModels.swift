@@ -102,10 +102,22 @@ enum VideoCoordinateMapper {
 }
 
 
-/// Converts a crop-local Vision rectangle back to the user's displayed frame
-/// coordinates. Remote Play's pixel-buffer X axis is mirrored relative to the
-/// displayed frame, so restore X from the opposite edge of the selected region.
+/// Converts a displayed capture region to the horizontally mirrored
+/// pixel-buffer region used by the Remote Play decoder.
 enum OCRCoordinateMapper {
+    static func sourcePixelBufferRegion(for displayedRegion: CaptureRegion) -> CaptureRegion {
+        let region = displayedRegion.clamped
+        return CaptureRegion(
+            x: 1 - region.x - region.width,
+            y: region.y,
+            width: region.width,
+            height: region.height
+        )
+    }
+
+    /// Converts a crop-local Vision rectangle back to the user's displayed frame
+    /// coordinates. Remote Play's pixel-buffer X axis is mirrored relative to
+    /// the displayed frame, so restore X from the opposite edge of the selected region.
     static func fullFrameRect(for localVisionRect: CGRect, in captureRegion: CaptureRegion) -> CGRect {
         let region = captureRegion.clamped
         return CGRect(
