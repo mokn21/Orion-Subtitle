@@ -20,6 +20,8 @@ class OverlayController(private val context: Context) {
     private val views = ConcurrentHashMap<String, TextView>()
     private val expiryTasks = ConcurrentHashMap<String, Runnable>()
     private val entryBackgroundColors = ConcurrentHashMap<String, Int>()
+    private val lastTouchedAt = ConcurrentHashMap<String, Long>()
+    private val maximumActiveOverlays = 24
 
     @Volatile private var textColor = Color.WHITE
     @Volatile private var backgroundColor = Color.BLACK
@@ -34,7 +36,7 @@ class OverlayController(private val context: Context) {
         width: Double,
         height: Double,
         backgroundColorHex: String? = null,
-        ttlMs: Long = 3000L
+        ttlMs: Long = 2500L
     ) {
         if (!Settings.canDrawOverlays(context)) return
         val metrics = context.resources.displayMetrics
@@ -42,10 +44,24 @@ class OverlayController(private val context: Context) {
             x, y, width, height, metrics.widthPixels, metrics.heightPixels
         ) ?: return
         handler.post {
+            val existing = views[id]
+            if (existing == null && views.size >= maximumActiveOverlays) {
+                lastTouchedAt.minByOrNull { it.value }?.key?.let(::removeNow)
+            }
             val view = views[id] ?: createTextView().also { views[id] = it }
-            view.text = text
-            backgroundColorHex?.takeIf { it.startsWith("#") }?.let { runCatching { entryBackgroundColors[id] = Color.parseColor(it) } }
-            applyStyle(view, rect.height, entryBackgroundColors[id])
+            val isNewView = existing == null
+            if (view.text.toString() != text) view.text = text
+
+            var backgroundChanged = false
+            backgroundColorHex?.takeIf { it.startsWith("#") }?.let { hex ->
+                runCatching { Color.parseColor(hex) }.getOrNull()?.let { parsed ->
+                    if (entryBackgroundColors[id] != parsed) {
+                        entryBackgroundColors[id] = parsed
+                        backgroundChanged = true
+                    }
+                }
+            }
+
             val params = (view.layoutParams as? WindowManager.LayoutParams)
                 ?: WindowManager.LayoutParams(
                     rect.width,
@@ -57,24 +73,42 @@ class OverlayController(private val context: Context) {
                         WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
                     PixelFormat.TRANSLUCENT
                 )
+            val sizeChanged = params.height != rect.height
+            if (isNewView || sizeChanged || backgroundChanged) {
+                applyStyle(view, rect.height, entryBackgroundColors[id])
+            }
+            val layoutChanged = params.width != rect.width ||
+                params.height != rect.height ||
+                params.x != rect.left ||
+                params.y != rect.top ||
+                params.gravity != (Gravity.TOP or Gravity.LEFT)
             params.width = rect.width
             params.height = rect.height
             params.gravity = Gravity.TOP or Gravity.LEFT
             params.x = rect.left
             params.y = rect.top
             try {
-                if (view.isAttachedToWindow) windowManager.updateViewLayout(view, params)
-                else windowManager.addView(view, params)
+                if (view.isAttachedToWindow) {
+                    if (layoutChanged) windowManager.updateViewLayout(view, params)
+                } else {
+                    windowManager.addView(view, params)
+                }
+                lastTouchedAt[id] = android.os.SystemClock.elapsedRealtime()
                 scheduleExpiry(id, ttlMs)
             } catch (_: Exception) {
                 views.remove(id)
+                lastTouchedAt.remove(id)
+                entryBackgroundColors.remove(id)
             }
         }
     }
 
     fun keep(id: String, ttlMs: Long = 3000L) {
         handler.post {
-            if (views.containsKey(id)) scheduleExpiry(id, ttlMs)
+            if (views.containsKey(id)) {
+                lastTouchedAt[id] = android.os.SystemClock.elapsedRealtime()
+                scheduleExpiry(id, ttlMs)
+            }
         }
     }
 
@@ -135,12 +169,13 @@ class OverlayController(private val context: Context) {
         expiryTasks.remove(id)?.let(handler::removeCallbacks)
         val task = Runnable { removeNow(id) }
         expiryTasks[id] = task
-        handler.postDelayed(task, ttlMs.coerceIn(250L, 15000L))
+        handler.postDelayed(task, ttlMs.coerceIn(1000L, 10000L))
     }
 
     private fun removeNow(id: String) {
         expiryTasks.remove(id)?.let(handler::removeCallbacks)
         entryBackgroundColors.remove(id)
+        lastTouchedAt.remove(id)
         views.remove(id)?.let { view ->
             runCatching { if (view.isAttachedToWindow) windowManager.removeView(view) }
         }
