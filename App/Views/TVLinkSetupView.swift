@@ -63,6 +63,10 @@ struct TVLinkSetupView: View {
                     }
                 }
             }
+            .scrollContentBackground(.hidden)
+            .background(OrionPalette.background)
+            .listRowBackground(OrionPalette.panel)
+            .tint(OrionPalette.olive)
             .navigationTitle("Orion TV Mode")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(isPresented: $showScanner) {

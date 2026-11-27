@@ -126,6 +126,7 @@ struct SettingsView: View {
 			}
 				 .scrollContentBackground(.hidden)
             .background(OrionPalette.background)
+            .listRowBackground(OrionPalette.panel)
             .tint(OrionPalette.olive)
 			.navigationTitle("الإعدادات")
 			.navigationBarTitleDisplayMode(.inline)
