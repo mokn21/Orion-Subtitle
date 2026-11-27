@@ -95,7 +95,9 @@ enum VideoCoordinateMapper {
             y: (viewSize.height - videoSize.height) / 2
         )
         return CGRect(
-            x: origin.x + visionRect.minX * videoSize.width,
+            // Remote Play's iPad preview is horizontally mirrored relative to the decoded pixel buffer.
+            // Mirror the complete rectangle so translated Arabic stays over its source text.
+            x: origin.x + (1 - visionRect.maxX) * videoSize.width,
             y: origin.y + (1 - visionRect.maxY) * videoSize.height,
             width: visionRect.width * videoSize.width,
             height: visionRect.height * videoSize.height
@@ -107,11 +109,17 @@ enum VideoCoordinateMapper {
 /// crop-local Vision boxes to the same unmirrored full-frame coordinate space.
 enum OCRCoordinateMapper {
     static func sourcePixelBufferRegion(for displayedRegion: CaptureRegion) -> CaptureRegion {
-        displayedRegion.clamped
+        let region = displayedRegion.clamped
+        return CaptureRegion(
+            x: 1 - region.x - region.width,
+            y: region.y,
+            width: region.width,
+            height: region.height
+        )
     }
 
     static func fullFrameRect(for localVisionRect: CGRect, in captureRegion: CaptureRegion) -> CGRect {
-        let region = captureRegion.clamped
+        let region = sourcePixelBufferRegion(for: captureRegion)
         return CGRect(
             x: CGFloat(region.x) + localVisionRect.minX * CGFloat(region.width),
             y: CGFloat(region.y) + localVisionRect.minY * CGFloat(region.height),
