@@ -99,7 +99,7 @@ final class TVLinkPublisher {
                     "width": Double(box.width),
                     "height": Double(box.height)
                 ],
-                "ttlMs": 600
+                "ttlMs": 350
             ])
         }
         sentIDs = Set(current.keys)
