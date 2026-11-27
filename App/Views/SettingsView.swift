@@ -141,7 +141,7 @@ private struct TranslationSettingsForm: View {
 			}
 				VStack(alignment: .leading) {
 					HStack { Text("الفاصل بين فحوص OCR"); Spacer(); Text("\(settings.translationIntervalMs) مللي ثانية") }
-					Slider(value: Binding(get: { Double(settings.translationIntervalMs) }, set: { settings.translationIntervalMs = Int($0) }), in: 150...1000, step: 50)
+					Slider(value: Binding(get: { Double(settings.translationIntervalMs) }, set: { settings.translationIntervalMs = Int($0) }), in: 100...1000, step: 50)
 				}
 				Picker("لون النص", selection: $settings.translationTextColor) {
 					ForEach(TranslationColorChoice.allCases.filter { $0 != .black }) { Text($0.label).tag($0) }
