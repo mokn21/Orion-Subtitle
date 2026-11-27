@@ -17,6 +17,7 @@ final class TVLinkPublisher {
     private var latestEntries: [TranslationEntry] = []
     private var sentIDs = Set<String>()
     private var receiveBuffer = ""
+    private var publishTask: Task<Void, Never>?
 
     func connect(host: String, portText: String, token: String) {
         disconnect()
@@ -67,6 +68,8 @@ final class TVLinkPublisher {
     }
 
     func disconnect() {
+        publishTask?.cancel()
+        publishTask = nil
         connection?.cancel()
         connection = nil
         isConnected = false
@@ -78,7 +81,19 @@ final class TVLinkPublisher {
     func update(_ entries: [TranslationEntry]) {
         latestEntries = entries
         guard isConnected else { return }
-        sendCurrentEntries()
+        schedulePublish()
+    }
+
+    // Coalesce rapid SwiftUI/OCR observations. TV overlays are refreshed at a
+    // bounded rate instead of flooding WindowManager with one update per frame.
+    private func schedulePublish() {
+        guard publishTask == nil else { return }
+        publishTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(150))
+            guard let self, !Task.isCancelled else { return }
+            self.publishTask = nil
+            self.sendCurrentEntries()
+        }
     }
 
     private func sendCurrentEntries() {
@@ -99,7 +114,7 @@ final class TVLinkPublisher {
                     "width": Double(box.width),
                     "height": Double(box.height)
                 ],
-                "ttlMs": 350
+                "ttlMs": 1800
             ])
         }
         sentIDs = Set(current.keys)
