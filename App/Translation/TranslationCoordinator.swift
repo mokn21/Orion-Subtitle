@@ -58,7 +58,7 @@ final class TranslationCoordinator {
     private var cacheOrder: [String] = []
     private let maximumCachedTranslations = 512
     // A short grace period tolerates a missed OCR frame without leaving stale TV captions.
-    private let visibleEntryExpirationInterval: TimeInterval = 0.45
+    private let visibleEntryExpirationInterval: TimeInterval = 0.85
 
     let appleTranslationBridge: AnyObject?
 
@@ -199,11 +199,17 @@ final class TranslationCoordinator {
                     self.ocrStatusMessage = "اكتشف OCR نصًا إنجليزيًا."
                     self.acceptOCR(result)
                 } else {
+                    // A single empty/low-confidence frame is not proof that the
+                    // subtitle disappeared. Invalidate pending translations, but
+                    // let the normal visibility grace period expire old captions.
                     self.ocrStatusMessage = "لم يُكتشف نص في آخر إطار."
                     self.latestOCRObservations = []
-                    self.lastObservationFingerprint = ""
                     self.nextGeneration &+= 1
-                    self.visibleEntries.removeAll()
+                    self.pruneExpiredVisibleEntries()
+                    self.scheduleVisibleEntryExpiry()
+                    if self.visibleEntries.isEmpty {
+                        self.lastObservationFingerprint = ""
+                    }
                 }
 
                 guard let newestFrame = self.pendingOCRFrame else { break }
@@ -222,9 +228,13 @@ final class TranslationCoordinator {
             latestOCRObservations = observations
 			guard !observations.isEmpty else {
                 skippedFrames += 1
-                lastObservationFingerprint = ""
+                latestOCRObservations = []
                 nextGeneration &+= 1
-                visibleEntries.removeAll()
+                pruneExpiredVisibleEntries()
+                scheduleVisibleEntryExpiry()
+                if visibleEntries.isEmpty {
+                    lastObservationFingerprint = ""
+                }
                 return
             }
         // Keep translated overlays attached to the latest OCR box. Small
@@ -335,7 +345,10 @@ final class TranslationCoordinator {
                 let rightDY = right.midY - old.midY
                 return leftDX * leftDX + leftDY * leftDY < rightDX * rightDX + rightDY * rightDY
             }) else {
-                return nil
+                // Keep the last known overlay briefly across transient OCR misses.
+                // Its lastSeenAt is deliberately not refreshed, so real removals
+                // still happen through the expiry task.
+                return currentEntry
             }
 
             usedObservationIndices.insert(bestIndex)
@@ -369,6 +382,9 @@ final class TranslationCoordinator {
     private func pruneExpiredVisibleEntries() {
         let now = Date()
         visibleEntries.removeAll { now.timeIntervalSince($0.lastSeenAt) > visibleEntryExpirationInterval }
+        if visibleEntries.isEmpty {
+            lastObservationFingerprint = ""
+        }
     }
 
     private func publish(_ translated: String, observation: OCRTextObservation, result: OCRResult, generation: UInt64) {

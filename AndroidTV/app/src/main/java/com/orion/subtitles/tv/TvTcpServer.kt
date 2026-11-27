@@ -1,6 +1,7 @@
 package com.orion.subtitles.tv
 
 import android.util.Log
+import android.os.SystemClock
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -8,6 +9,7 @@ import java.io.OutputStreamWriter
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -82,8 +84,19 @@ class TvTcpServer(
             onStatus("متصل بالآيباد")
             overlay.clearAll()
 
+            // The iPad sends a lightweight ping every two seconds. A read timeout
+            // lets the receiver detect a half-open Wi-Fi connection even when TCP
+            // never reports EOF, then clear all overlays without waiting for TTL.
+            client.soTimeout = 2_000
+            var lastInboundAt = SystemClock.elapsedRealtime()
             while (running.get() && !client.isClosed) {
-                val line = reader.readLine() ?: break
+                val line = try {
+                    reader.readLine()
+                } catch (_: SocketTimeoutException) {
+                    if (SystemClock.elapsedRealtime() - lastInboundAt > 7_000L) break
+                    continue
+                } ?: break
+                lastInboundAt = SystemClock.elapsedRealtime()
                 if (line.length > MAX_LINE_CHARS) break
                 val message = runCatching { JSONObject(line) }.getOrNull() ?: continue
                 handleMessage(message, writer)

@@ -78,6 +78,11 @@ final class StreamSession {
 	@ObservationIgnored private var loggedFirstFrameOnMain = false
 	@ObservationIgnored private var loggedDecodeFailure = false
 	@ObservationIgnored private var videoCallbackCount = 0
+    // Coalesce decoder callbacks before they reach MainActor. Video presentation
+    // remains per-frame; only OCR/UI observation keeps the newest pending frame.
+    @ObservationIgnored private let frameDeliveryLock = NSLock()
+    @ObservationIgnored private var pendingDecodedFrame: CVPixelBuffer?
+    @ObservationIgnored private var frameDeliveryScheduled = false
 
 	init(console: Console, settings: StreamSettings, historyStore: TranslationHistoryStore, renderVideo: Bool = true) {
 		self.console = console
@@ -137,14 +142,7 @@ final class StreamSession {
 			}
 			// SwiftUI observation and OCR state are main-actor state. The
 			// decoder callback is a Chiaki/VideoToolbox thread.
-			Task { @MainActor in
-				self.latestFrame = frame
-				if !self.loggedFirstFrameOnMain {
-					self.loggedFirstFrameOnMain = true
-					log.notice("Remote Play first latestFrame update on MainActor attempt=\(self.activeAttemptID?.uuidString ?? "none", privacy: .public)")
-				}
-				self.translationCoordinator.submit(pixelBuffer: frame)
-			}
+            self.enqueueDecodedFrame(frame)
 		}
 		self.decoder = decoder
 		renderer?.resetDiagnostics()
@@ -263,6 +261,36 @@ final class StreamSession {
 			startWork = work
 			DispatchQueue.global(qos: .userInitiated).async(execute: work)
 		}
+
+    private func enqueueDecodedFrame(_ frame: CVPixelBuffer) {
+        frameDeliveryLock.lock()
+        pendingDecodedFrame = frame
+        let shouldSchedule = !frameDeliveryScheduled
+        frameDeliveryScheduled = true
+        frameDeliveryLock.unlock()
+        guard shouldSchedule else { return }
+
+        Task { @MainActor [weak self] in
+            self?.drainPendingDecodedFrame()
+        }
+    }
+
+    @MainActor
+    private func drainPendingDecodedFrame() {
+        frameDeliveryLock.lock()
+        let frame = pendingDecodedFrame
+        pendingDecodedFrame = nil
+        frameDeliveryScheduled = false
+        frameDeliveryLock.unlock()
+        guard let frame else { return }
+
+        latestFrame = frame
+        if !loggedFirstFrameOnMain {
+            loggedFirstFrameOnMain = true
+            log.notice("Remote Play first latestFrame update on MainActor attempt=\(activeAttemptID?.uuidString ?? "none", privacy: .public)")
+        }
+        translationCoordinator.submit(pixelBuffer: frame)
+    }
 
 	private func finishStart(_ err: Int32, attemptID: UUID) {
 		guard activeAttemptID == attemptID else { return }
@@ -410,6 +438,11 @@ final class StreamSession {
 		handle = nil
 		decoder?.invalidate()
 		decoder = nil
+        frameDeliveryLock.lock()
+        pendingDecodedFrame = nil
+        frameDeliveryScheduled = false
+        frameDeliveryLock.unlock()
+        translationCoordinator.stop()
 		latestFrame = nil
 		selfRef?.release()
 		selfRef = nil

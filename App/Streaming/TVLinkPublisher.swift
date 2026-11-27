@@ -18,6 +18,8 @@ final class TVLinkPublisher {
     private var sentIDs = Set<String>()
     private var receiveBuffer = ""
     private var publishTask: Task<Void, Never>?
+    private var heartbeatTask: Task<Void, Never>?
+    private var publishedFingerprints: [String: String] = [:]
 
     func connect(host: String, portText: String, token: String) {
         disconnect()
@@ -70,6 +72,8 @@ final class TVLinkPublisher {
     func disconnect() {
         publishTask?.cancel()
         publishTask = nil
+        heartbeatTask?.cancel()
+        heartbeatTask = nil
         if let activeConnection = connection, isConnected,
            var data = try? JSONSerialization.data(
                withJSONObject: ["type": "subtitle.clearAll"],
@@ -85,6 +89,7 @@ final class TVLinkPublisher {
         connection = nil
         isConnected = false
         sentIDs.removeAll()
+        publishedFingerprints.removeAll()
         receiveBuffer = ""
         status = "غير متصل"
     }
@@ -119,11 +124,24 @@ final class TVLinkPublisher {
 
     private func sendCurrentEntries() {
         let current = Dictionary(uniqueKeysWithValues: latestEntries.map { ($0.id.uuidString, $0) })
-        for removedID in sentIDs.subtracting(current.keys) {
+        let currentIDs = Set(current.keys)
+        for removedID in sentIDs.subtracting(currentIDs) {
             send(["type": "subtitle.clear", "id": removedID])
+            publishedFingerprints[removedID] = nil
         }
         for (id, entry) in current {
             let box = entry.tvBoundingBox
+            // Ignore sub-pixel OCR jitter and avoid repeating identical WindowManager
+            // updates. The heartbeat below keeps existing overlays alive separately.
+            let fingerprint = [
+                entry.translatedText,
+                entry.backgroundColorHex,
+                String(Int((Double(box.minX) * 1000).rounded())),
+                String(Int((Double(box.minY) * 1000).rounded())),
+                String(Int((Double(box.width) * 1000).rounded())),
+                String(Int((Double(box.height) * 1000).rounded()))
+            ].joined(separator: "|")
+            guard publishedFingerprints[id] != fingerprint else { continue }
             send([
                 "type": "subtitle.show",
                 "id": id,
@@ -135,10 +153,25 @@ final class TVLinkPublisher {
                     "width": Double(box.width),
                     "height": Double(box.height)
                 ],
-                "ttlMs": 1800
+                "ttlMs": 5000
             ])
+            publishedFingerprints[id] = fingerprint
         }
-        sentIDs = Set(current.keys)
+        sentIDs = currentIDs
+    }
+
+    private func startHeartbeat() {
+        heartbeatTask?.cancel()
+        heartbeatTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                guard let self, !Task.isCancelled, self.isConnected else { return }
+                self.send(["type": "ping", "nonce": UUID().uuidString])
+                for id in self.sentIDs {
+                    self.send(["type": "subtitle.keep", "id": id, "ttlMs": 5000])
+                }
+            }
+        }
     }
 
     private func receive(from candidate: NWConnection) {
@@ -166,6 +199,7 @@ final class TVLinkPublisher {
                                 ]
                             ])
                             self.sendCurrentEntries()
+                            self.startHeartbeat()
                         } else if object["type"] as? String == "error" {
                             self.isConnected = false
                             self.status = "رفض التلفاز رمز الاقتران."
@@ -175,6 +209,10 @@ final class TVLinkPublisher {
                 }
                 if let error {
                     self.isConnected = false
+                    self.heartbeatTask?.cancel()
+                    self.heartbeatTask = nil
+                    self.sentIDs.removeAll()
+                    self.publishedFingerprints.removeAll()
                     self.status = "انقطع اتصال التلفاز: \(error.localizedDescription)"
                     return
                 }
@@ -196,6 +234,10 @@ final class TVLinkPublisher {
             Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.isConnected = false
+                self.heartbeatTask?.cancel()
+                self.heartbeatTask = nil
+                self.sentIDs.removeAll()
+                self.publishedFingerprints.removeAll()
                 self.status = "تعذر إرسال الترجمة: \(error.localizedDescription)"
             }
         })
