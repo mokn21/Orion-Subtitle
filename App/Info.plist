@@ -45,6 +45,8 @@
 	<string>public.app-category.games</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Orion Subtitles uses the camera to scan the pairing QR code displayed by Orion TV.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Orion Subtitles finds and connects to your PS5 on the local network for Remote Play.</string>
 	<key>UIApplicationSceneManifest</key>

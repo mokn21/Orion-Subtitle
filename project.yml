@@ -54,7 +54,8 @@ targets:
         UIStatusBarHidden: false
         UIViewControllerBasedStatusBarAppearance: true
         # Lets ProMotion run above 60 Hz
-        NSLocalNetworkUsageDescription: Orion Subtitles finds and connects to your PS5 on the local network for Remote Play.
+        NSLocalNetworkUsageDescription: Orion Subtitles finds and connects to your PS5 and Orion TV on the local network.
+        NSCameraUsageDescription: Orion Subtitles scans the Orion TV pairing QR code to connect over your local network.
         # Game controllers can drive the UI and Game Mode kicks in while streaming
         GCSupportsControllerUserInteraction: true
         GCSupportsGameMode: true
