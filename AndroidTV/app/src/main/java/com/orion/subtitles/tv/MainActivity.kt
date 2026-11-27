@@ -137,7 +137,7 @@ class MainActivity : Activity() {
         val pairingBody = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            layoutDirection = View.LAYOUT_DIRECTION.LTR
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
         }
         pairingCard.addView(pairingBody, LinearLayout.LayoutParams(-1, 0, 1f).apply { topMargin = dp(10) })
         qrImage = ImageView(this).apply {
