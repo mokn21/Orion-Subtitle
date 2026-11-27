@@ -92,6 +92,7 @@ final class TVLinkPublisher {
                 "type": "subtitle.show",
                 "id": id,
                 "text": entry.translatedText,
+                "backgroundColor": entry.backgroundColorHex,
                 "rect": [
                     "x": Double(box.minX),
                     "y": Double(box.minY),
