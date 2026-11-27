@@ -104,6 +104,7 @@ class TvTcpServer(
                     y = rect.optDouble("y", Double.NaN),
                     width = rect.optDouble("width", Double.NaN),
                     height = rect.optDouble("height", Double.NaN),
+                    backgroundColorHex = message.optString("backgroundColor").takeIf { it.startsWith("#") },
                     ttlMs = message.optLong("ttlMs", 3000L)
                 )
             }
