@@ -36,7 +36,11 @@ struct AddConsoleView: View {
 					Section { Text(error).foregroundStyle(.red) }
 				}
 			}
-			.navigationTitle("Add console")
+			.scrollContentBackground(.hidden)
+            .background(OrionPalette.background.ignoresSafeArea())
+            .listRowBackground(OrionPalette.panel)
+            .tint(OrionPalette.olive)
+            .navigationTitle("إضافة جهاز")
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
 				ToolbarItem(placement: .cancellationAction) { Button("إلغاء") { dismiss() } }

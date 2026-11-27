@@ -64,8 +64,6 @@ struct SettingsView: View {
 	@Environment(SettingsStore.self) private var store
 	@Environment(ConsoleStore.self) private var consoles
 	@Environment(TranslationHistoryStore.self) private var translationHistory
-	@Environment(TVLinkPublisher.self) private var tvLinkPublisher
-	@State private var showTVLinkSetup = false
 	@Environment(\.dismiss) private var dismiss
 
 	var body: some View {
@@ -115,9 +113,6 @@ struct SettingsView: View {
 			.navigationBarTitleDisplayMode(.inline)
 			.toolbar {
 					ToolbarItem(placement: .confirmationAction) { Button("تم") { dismiss() } }
-			}
-			.sheet(isPresented: $showTVLinkSetup) {
-				TVLinkSetupView(publisher: tvLinkPublisher)
 			}
 		}
 	}
@@ -258,6 +253,10 @@ private struct TranslationHistoryView: View {
                 }
             }
         }
+        .scrollContentBackground(.hidden)
+        .background(OrionPalette.background.ignoresSafeArea())
+        .listRowBackground(OrionPalette.panel)
+        .tint(OrionPalette.olive)
         .scrollContentBackground(.hidden)
         .background(OrionPalette.background.ignoresSafeArea())
         .listRowBackground(OrionPalette.panel)

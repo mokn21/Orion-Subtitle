@@ -501,7 +501,7 @@ struct StreamView: View {
             .padding(24).frame(maxWidth: 820).frame(maxWidth: .infinity)
         }
         .background(OrionPalette.background.ignoresSafeArea())
-        .environment(\.layoutDirection, .rightToLeft)
+        .environment(\.layoutDirection, Locale.current.language.languageCode?.identifier == "ar" ? .rightToLeft : .leftToRight)
     }
 
     private func controlActionCard(title: String, subtitle: String, icon: String, action: @escaping () -> Void) -> some View {
