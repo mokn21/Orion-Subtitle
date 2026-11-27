@@ -7,12 +7,14 @@ struct OCRTextObservation: Equatable, Identifiable {
     /// Vision normalized coordinates. Origin is bottom-left; values are 0...1.
     let boundingBox: CGRect
     let confidence: Float
+    let backgroundColorHex: String
 
-    init(id: UUID = UUID(), text: String, boundingBox: CGRect, confidence: Float) {
+    init(id: UUID = UUID(), text: String, boundingBox: CGRect, confidence: Float, backgroundColorHex: String = "#000000") {
         self.id = id
         self.text = text
         self.boundingBox = boundingBox
         self.confidence = confidence
+        self.backgroundColorHex = backgroundColorHex
     }
 }
 
@@ -128,6 +130,7 @@ struct TranslationEntry: Identifiable, Equatable {
     /// The original text position in Vision normalized coordinates.
     var boundingBox: CGRect
     var confidence: Float
+    var backgroundColorHex: String = "#000000"
     var lastSeenAt = Date()
     let createdAt = Date()
     let metrics: LatencyMetrics
