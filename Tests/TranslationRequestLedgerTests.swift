@@ -249,20 +249,21 @@ final class TranslationRequestLedgerTests: XCTestCase {
             XCTAssertEqual(leftSource.x, 0.7, accuracy: 0.0001)
         }
 
-        func testOCRCropCoordinatesRemainInPixelBufferSpaceForTVPublisher() {
+        func testOCRCropCoordinatesMapToMirroredPixelBufferSpace() {
             let fullScreen = CaptureRegion.fullScreen
-            let leftSourceText = OCRCoordinateMapper.fullFrameRect(
+            let displayedLeftText = OCRCoordinateMapper.fullFrameRect(
                 for: CGRect(x: 0.08, y: 0.2, width: 0.12, height: 0.06),
                 in: fullScreen
             )
-            XCTAssertEqual(leftSourceText.minX, 0.08, accuracy: 0.0001)
-            XCTAssertEqual(leftSourceText.minY, 0.2, accuracy: 0.0001)
+            XCTAssertEqual(displayedLeftText.minX, 0.8, accuracy: 0.0001)
+            XCTAssertEqual(displayedLeftText.minY, 0.2, accuracy: 0.0001)
+            XCTAssertEqual(displayedLeftText.width, 0.12, accuracy: 0.0001)
 
-            let rightSourceText = OCRCoordinateMapper.fullFrameRect(
+            let displayedRightText = OCRCoordinateMapper.fullFrameRect(
                 for: CGRect(x: 0.78, y: 0.2, width: 0.12, height: 0.06),
                 in: fullScreen
             )
-            XCTAssertEqual(rightSourceText.minX, 0.78, accuracy: 0.0001)
+            XCTAssertEqual(displayedRightText.minX, 0.1, accuracy: 0.0001)
 
             let crop = CaptureRegion(x: 0.2, y: 0.1, width: 0.5, height: 0.4)
             let mapped = OCRCoordinateMapper.fullFrameRect(
@@ -273,6 +274,21 @@ final class TranslationRequestLedgerTests: XCTestCase {
             XCTAssertEqual(mapped.minY, 0.2, accuracy: 0.0001)
             XCTAssertEqual(mapped.width, 0.1, accuracy: 0.0001)
             XCTAssertEqual(mapped.height, 0.04, accuracy: 0.0001)
+        }
+
+        func testTVCoordinatesRetainOriginalVisionOrientation() {
+            let leftSourceText = OCRCoordinateMapper.tvFrameRect(
+                for: CGRect(x: 0.08, y: 0.2, width: 0.12, height: 0.06),
+                in: .fullScreen
+            )
+            XCTAssertEqual(leftSourceText.minX, 0.08, accuracy: 0.0001)
+            XCTAssertEqual(leftSourceText.minY, 0.2, accuracy: 0.0001)
+
+            let rightSourceText = OCRCoordinateMapper.tvFrameRect(
+                for: CGRect(x: 0.78, y: 0.2, width: 0.12, height: 0.06),
+                in: .fullScreen
+            )
+            XCTAssertEqual(rightSourceText.minX, 0.78, accuracy: 0.0001)
         }
 
         func testIPadOverlayMirrorsPixelBufferXWithoutChangingTVCoordinates() {
