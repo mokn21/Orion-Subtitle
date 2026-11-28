@@ -85,13 +85,19 @@ final class OCRService {
     private static func sampleSurroundingColor(in image: CIImage, normalizedBox: CGRect, extent: CGRect) -> String {
         let box = CGRect(x: extent.minX + normalizedBox.minX * extent.width, y: extent.minY + normalizedBox.minY * extent.height, width: normalizedBox.width * extent.width, height: normalizedBox.height * extent.height).intersection(extent)
         guard !box.isNull, box.width > 2, box.height > 2 else { return "#000000" }
-        let band = max(2, min(box.height * 0.22, extent.height * 0.012))
-        let regions = [
-            CGRect(x: box.minX, y: box.maxY, width: box.width, height: band),
-            CGRect(x: box.minX, y: box.minY - band, width: box.width, height: band),
-            CGRect(x: box.minX - band, y: box.minY, width: band, height: box.height),
-            CGRect(x: box.maxX, y: box.minY, width: band, height: box.height)
-        ].map { $0.intersection(extent) }.filter { !$0.isNull && $0.width >= 1 && $0.height >= 1 }
+        // Sample only a thin strip immediately ABOVE the detected source word.
+        // Avoid the sides/below area: those pixels often belong to neighbouring
+        // menu rows, selection highlights, or unrelated UI elements.
+        let horizontalInset = box.width * 0.12
+        let gap = max(1, min(box.height * 0.035, 5))
+        let band = max(2, min(box.height * 0.12, 8))
+        let sampleRect = CGRect(
+            x: box.minX + horizontalInset,
+            y: box.maxY + gap,
+            width: max(1, box.width - horizontalInset * 2),
+            height: band
+        ).intersection(extent)
+        let regions = [sampleRect].filter { !$0.isNull && $0.width >= 1 && $0.height >= 1 }
         var samples: [(Double, Double, Double)] = []
         for rect in regions {
             let average = image.applyingFilter("CIAreaAverage", parameters: [kCIInputExtentKey: CIVector(cgRect: rect)])
