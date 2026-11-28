@@ -15,6 +15,7 @@ class TvReceiverService : Service() {
         const val ACTION_START = "com.orion.subtitles.tv.START"
         const val ACTION_TEST = "com.orion.subtitles.tv.TEST"
         const val ACTION_STOP = "com.orion.subtitles.tv.STOP"
+        const val ACTION_CLEAR = "com.orion.subtitles.tv.CLEAR"
         const val ACTION_STATUS = "com.orion.subtitles.tv.STATUS"
         const val EXTRA_STATUS = "status"
         private const val CHANNEL_ID = "orion_tv_receiver"
@@ -35,6 +36,10 @@ class TvReceiverService : Service() {
             ACTION_TEST -> {
                 startReceiverIfNeeded()
                 overlay?.show("orion-tv-test", "اختبار Orion TV", 0.25, 0.40, 0.50, 0.16, ttlMs = 5000L)
+            }
+            ACTION_CLEAR -> {
+                startReceiverIfNeeded()
+                overlay?.clearAll()
             }
             else -> startReceiverIfNeeded()
         }
