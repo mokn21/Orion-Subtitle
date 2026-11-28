@@ -94,6 +94,19 @@ final class TVLinkPublisher {
         status = "غير متصل"
     }
 
+    /// Immediately clears every overlay on the paired TV and forgets the
+    /// current batch so a later reconnect cannot resurrect stale captions.
+    func clearAllSubtitles() {
+        publishTask?.cancel()
+        publishTask = nil
+        latestEntries = []
+        if isConnected {
+            send(["type": "subtitle.clearAll"])
+        }
+        sentIDs.removeAll()
+        publishedFingerprints.removeAll()
+    }
+
     func update(_ entries: [TranslationEntry]) {
         latestEntries = entries
         guard isConnected else { return }
