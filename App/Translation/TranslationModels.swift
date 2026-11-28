@@ -225,7 +225,7 @@ struct MenuSelectionDetector {
                 }
             }
         }
-        for groupID in activeKeys.keys where !seenGroups.contains(groupID) {
+        for groupID in Array(activeKeys.keys) where !seenGroups.contains(groupID) {
             ageOutSelection(for: groupID)
         }
         return output

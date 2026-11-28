@@ -352,6 +352,43 @@ final class TranslationRequestLedgerTests: XCTestCase {
     }
 
 
+    func testMenuSelectionRequiresTwoFramesAndComparesAlignedRows() {
+        var detector = MenuSelectionDetector()
+        let rows = [
+            OCRTextObservation(text: "Start", boundingBox: CGRect(x: 0.4, y: 0.72, width: 0.2, height: 0.04), confidence: 0.95, visualBrightness: 0.64),
+            OCRTextObservation(text: "Options", boundingBox: CGRect(x: 0.4, y: 0.49, width: 0.2, height: 0.06), confidence: 0.95, visualBrightness: 0.91),
+            OCRTextObservation(text: "Exit", boundingBox: CGRect(x: 0.4, y: 0.26, width: 0.2, height: 0.04), confidence: 0.95, visualBrightness: 0.65)
+        ]
+
+        let firstFrame = detector.annotate(rows)
+        XCTAssertFalse(firstFrame.contains(where: \.isSelectedMenuItem))
+
+        let secondFrame = detector.annotate(rows)
+        XCTAssertTrue(secondFrame[1].isSelectedMenuItem)
+        XCTAssertFalse(secondFrame[0].isSelectedMenuItem)
+        XCTAssertFalse(secondFrame[2].isSelectedMenuItem)
+    }
+
+    func testMenuSelectionUsesHysteresisWhenHighlightDisappears() {
+        var detector = MenuSelectionDetector()
+        let selectedRows = [
+            OCRTextObservation(text: "Start", boundingBox: CGRect(x: 0.4, y: 0.72, width: 0.2, height: 0.04), confidence: 0.95, visualBrightness: 0.64),
+            OCRTextObservation(text: "Options", boundingBox: CGRect(x: 0.4, y: 0.49, width: 0.2, height: 0.06), confidence: 0.95, visualBrightness: 0.91),
+            OCRTextObservation(text: "Exit", boundingBox: CGRect(x: 0.4, y: 0.26, width: 0.2, height: 0.04), confidence: 0.95, visualBrightness: 0.65)
+        ]
+        _ = detector.annotate(selectedRows)
+        XCTAssertTrue(detector.annotate(selectedRows)[1].isSelectedMenuItem)
+
+        let normalRows = [
+            OCRTextObservation(text: "Start", boundingBox: CGRect(x: 0.4, y: 0.72, width: 0.2, height: 0.04), confidence: 0.95, visualBrightness: 0.65),
+            OCRTextObservation(text: "Options", boundingBox: CGRect(x: 0.4, y: 0.49, width: 0.2, height: 0.04), confidence: 0.95, visualBrightness: 0.65),
+            OCRTextObservation(text: "Exit", boundingBox: CGRect(x: 0.4, y: 0.26, width: 0.2, height: 0.04), confidence: 0.95, visualBrightness: 0.65)
+        ]
+        XCTAssertTrue(detector.annotate(normalRows)[1].isSelectedMenuItem)
+        XCTAssertTrue(detector.annotate(normalRows)[1].isSelectedMenuItem)
+        XCTAssertFalse(detector.annotate(normalRows)[1].isSelectedMenuItem)
+    }
+
 	}
 
 
