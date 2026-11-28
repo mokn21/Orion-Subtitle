@@ -52,6 +52,9 @@ final class OCRService {
 
         // Vision coordinates are normalized to the cropped image. Restore
         // full-frame coordinates so the overlay remains aligned with the game.
+        // Menu emphasis sampling is deliberately bounded. Dense screens already
+        // stress OCR/translation; skip this optional visual pass above 24 boxes.
+        let shouldSampleMenuBrightness = (request.results?.count ?? 0) <= 24
         let observations = (request.results ?? []).compactMap { observation -> OCRTextObservation? in
             guard let candidate = observation.topCandidates(1).first,
                   candidate.confidence >= minimumConfidence else { return nil }
@@ -71,7 +74,9 @@ final class OCRService {
             let fullFrameBox = OCRCoordinateMapper.fullFrameRect(for: local, in: selectedRegion)
             let tvFrameBox = OCRCoordinateMapper.tvFrameRect(for: local, in: selectedRegion)
             let sampledBackground = Self.sampleSurroundingColor(in: fullImage, normalizedBox: fullFrameBox, extent: extent)
-            let visualBrightness = Self.sampleTextBrightness(in: fullImage, normalizedBox: fullFrameBox, extent: extent)
+            let visualBrightness = shouldSampleMenuBrightness
+                ? Self.sampleTextBrightness(in: fullImage, normalizedBox: fullFrameBox, extent: extent)
+                : nil
             return OCRTextObservation(
                 text: text,
                 boundingBox: fullFrameBox,
