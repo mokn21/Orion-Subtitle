@@ -53,6 +53,7 @@ final class TranslationCoordinator {
     private var lastSubmittedAt: ContinuousClock.Instant?
     private var lastObservationFingerprint = ""
     private var latestOCRObservations: [OCRTextObservation] = []
+    private var menuSelectionDetector = MenuSelectionDetector()
     private var nextGeneration: UInt64 = 0
     private var cache: [String: String] = [:]
     private var cacheOrder: [String] = []
@@ -123,6 +124,7 @@ final class TranslationCoordinator {
         translationTasks.removeAll()
         lastObservationFingerprint = ""
         latestOCRObservations = []
+        menuSelectionDetector = MenuSelectionDetector()
 		lastError = nil
 		ocrStatusMessage = "OCR يعمل وينتظر إطارًا نصيًا."
 		translationStatusMessage = "بانتظار نص إنجليزي من OCR."
@@ -153,6 +155,7 @@ final class TranslationCoordinator {
         secondaryCoordinator?.stop()
 		lastObservationFingerprint = ""
         latestOCRObservations = []
+        menuSelectionDetector = MenuSelectionDetector()
 		visibleEntries = []
 		ocrStatusMessage = "تم إيقاف OCR والترجمة."
 		translationStatusMessage = "تم إيقاف الترجمة."
@@ -175,6 +178,7 @@ final class TranslationCoordinator {
         translationTasks.values.forEach { $0.cancel() }
         translationTasks.removeAll()
         latestOCRObservations = []
+        menuSelectionDetector = MenuSelectionDetector()
         lastObservationFingerprint = ""
         latestEntry = nil
         visibleEntries = []
@@ -251,7 +255,8 @@ final class TranslationCoordinator {
     }
 
 		private func acceptOCR(_ result: OCRResult) {
-			let observations = result.observations.filter { !Self.normalize($0.text).isEmpty }
+			let rawObservations = result.observations.filter { !Self.normalize($0.text).isEmpty }
+            let observations = menuSelectionDetector.annotate(rawObservations)
             latestOCRObservations = observations
 			guard !observations.isEmpty else {
                 skippedFrames += 1
@@ -384,6 +389,7 @@ final class TranslationCoordinator {
             updated.confidence = observations[bestIndex].confidence
             updated.backgroundColorHex = observations[bestIndex].backgroundColorHex
             updated.tvBoundingBox = observations[bestIndex].tvBoundingBox
+            updated.isSelectedMenuItem = observations[bestIndex].isSelectedMenuItem
             updated.lastSeenAt = Date()
             return updated
         }
@@ -429,6 +435,7 @@ final class TranslationCoordinator {
 	            confidence: currentObservation.confidence,
 	            backgroundColorHex: currentObservation.backgroundColorHex,
                 tvBoundingBox: currentObservation.tvBoundingBox,
+                isSelectedMenuItem: currentObservation.isSelectedMenuItem,
 	            metrics: LatencyMetrics(
 	                capturedAt: result.capturedAt,
 	                ocrStartedAt: result.startedAt,
@@ -458,6 +465,7 @@ final class TranslationCoordinator {
                 updated.confidence = entry.confidence
                 updated.backgroundColorHex = entry.backgroundColorHex
                 updated.tvBoundingBox = entry.tvBoundingBox
+                updated.isSelectedMenuItem = entry.isSelectedMenuItem
                 updated.lastSeenAt = Date()
                 visibleEntries[index] = updated
                 latestEntry = updated

@@ -9,14 +9,18 @@ struct OCRTextObservation: Equatable, Identifiable {
     let confidence: Float
     let backgroundColorHex: String
     let tvBoundingBox: CGRect
+    let visualBrightness: Double?
+    var isSelectedMenuItem = false
 
-    init(id: UUID = UUID(), text: String, boundingBox: CGRect, confidence: Float, backgroundColorHex: String = "#000000", tvBoundingBox: CGRect? = nil) {
+    init(id: UUID = UUID(), text: String, boundingBox: CGRect, confidence: Float, backgroundColorHex: String = "#000000", tvBoundingBox: CGRect? = nil, visualBrightness: Double? = nil, isSelectedMenuItem: Bool = false) {
         self.id = id
         self.text = text
         self.boundingBox = boundingBox
         self.confidence = confidence
         self.backgroundColorHex = backgroundColorHex
         self.tvBoundingBox = tvBoundingBox ?? boundingBox
+        self.visualBrightness = visualBrightness
+        self.isSelectedMenuItem = isSelectedMenuItem
     }
 }
 
@@ -152,6 +156,7 @@ struct TranslationEntry: Identifiable, Equatable {
     var backgroundColorHex: String = "#000000"
     var tvBoundingBox: CGRect = .zero
     var lastSeenAt = Date()
+    var isSelectedMenuItem = false
     let createdAt = Date()
     let metrics: LatencyMetrics
 }
@@ -162,4 +167,129 @@ enum TranslationState: Equatable {
     case paused
     case unavailable(String)
     case failed(String)
+}
+
+/// Conservative visual detector for game-menu focus.
+/// It compares aligned OCR rows within one frame and requires the same
+/// enlarged + brighter candidate to persist across consecutive OCR frames.
+struct MenuSelectionDetector {
+    private var activeKeys: [Int: String] = [:]
+    private var pendingKeys: [Int: String] = [:]
+    private var pendingCounts: [Int: Int] = [:]
+    private var emptyFrameCounts: [Int: Int] = [:]
+
+    mutating func annotate(_ observations: [OCRTextObservation]) -> [OCRTextObservation] {
+        var output = observations.map { observation -> OCRTextObservation in
+            var copy = observation
+            copy.isSelectedMenuItem = false
+            return copy
+        }
+        var seenGroups = Set<Int>()
+        for indices in alignedGroups(in: observations) {
+            guard indices.count >= 2, indices.count <= 10 else { continue }
+            let groupID = groupIdentifier(for: indices, in: observations)
+            seenGroups.insert(groupID)
+            let heights = indices.map { Double(observations[$0].boundingBox.height) }.sorted()
+            let brightnessValues = indices.compactMap { observations[$0].visualBrightness }.sorted()
+            guard heights.count == indices.count, brightnessValues.count == indices.count,
+                  let medianHeight = median(heights), medianHeight > 0,
+                  let medianBrightness = median(brightnessValues) else {
+                ageOutSelection(for: groupID)
+                continue
+            }
+            let candidates = indices.filter { index in
+                let observation = observations[index]
+                let ratio = Double(observation.boundingBox.height) / medianHeight
+                guard let brightness = observation.visualBrightness else { return false }
+                return ratio >= 1.08 && brightness >= medianBrightness + 0.06
+            }
+            if let winner = candidates.max(by: {
+                score($0, medianHeight, medianBrightness, observations) <
+                score($1, medianHeight, medianBrightness, observations)
+            }) {
+                let key = itemIdentifier(observations[winner])
+                if pendingKeys[groupID] == key {
+                    pendingCounts[groupID, default: 0] += 1
+                } else {
+                    pendingKeys[groupID] = key
+                    pendingCounts[groupID] = 1
+                }
+                emptyFrameCounts[groupID] = 0
+                if pendingCounts[groupID, default: 0] >= 2 { activeKeys[groupID] = key }
+            } else {
+                ageOutSelection(for: groupID)
+            }
+            if let activeKey = activeKeys[groupID] {
+                for index in indices where itemIdentifier(observations[index]) == activeKey {
+                    output[index].isSelectedMenuItem = true
+                }
+            }
+        }
+        for groupID in activeKeys.keys where !seenGroups.contains(groupID) {
+            ageOutSelection(for: groupID)
+        }
+        return output
+    }
+
+    private mutating func ageOutSelection(for groupID: Int) {
+        emptyFrameCounts[groupID, default: 0] += 1
+        pendingKeys[groupID] = nil
+        pendingCounts[groupID] = 0
+        if emptyFrameCounts[groupID, default: 0] >= 3 {
+            activeKeys[groupID] = nil
+            emptyFrameCounts[groupID] = 0
+        }
+    }
+
+    private func alignedGroups(in observations: [OCRTextObservation]) -> [[Int]] {
+        var remaining = Set(observations.indices)
+        var groups: [[Int]] = []
+        while let seed = remaining.first {
+            remaining.remove(seed)
+            var group = [seed]
+            var frontier = [seed]
+            while let current = frontier.popLast() {
+                let box = observations[current].boundingBox
+                let neighbours = remaining.filter { candidate in
+                    let other = observations[candidate].boundingBox
+                    return abs(box.minX - other.minX) <= 0.065 ||
+                        abs(box.midX - other.midX) <= 0.065
+                }
+                for neighbour in neighbours {
+                    remaining.remove(neighbour)
+                    group.append(neighbour)
+                    frontier.append(neighbour)
+                }
+            }
+            if group.count >= 2 { groups.append(group) }
+        }
+        return groups
+    }
+
+    private func groupIdentifier(for indices: [Int], in observations: [OCRTextObservation]) -> Int {
+        let left = indices.map { Double(observations[$0].boundingBox.minX) }
+        let centre = indices.map { Double(observations[$0].boundingBox.midX) }
+        let leftSpread = (left.max() ?? 0) - (left.min() ?? 0)
+        let centreSpread = (centre.max() ?? 0) - (centre.min() ?? 0)
+        return Int(((median(leftSpread <= centreSpread ? left : centre) ?? 0) * 20).rounded())
+    }
+
+    private func itemIdentifier(_ observation: OCRTextObservation) -> String {
+        let normalized = observation.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        return "\(normalized)|\(Int((Double(observation.boundingBox.midY) * 30).rounded()))"
+    }
+
+    private func score(_ index: Int, _ medianHeight: Double, _ medianBrightness: Double, _ observations: [OCRTextObservation]) -> Double {
+        (Double(observations[index].boundingBox.height) / medianHeight - 1) +
+            ((observations[index].visualBrightness ?? medianBrightness) - medianBrightness) * 2
+    }
+
+    private func median(_ values: [Double]) -> Double? {
+        guard !values.isEmpty else { return nil }
+        let middle = values.count / 2
+        return values.count.isMultiple(of: 2)
+            ? (values[middle - 1] + values[middle]) / 2
+            : values[middle]
+    }
 }

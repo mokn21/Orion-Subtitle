@@ -21,6 +21,7 @@ class OverlayController(private val context: Context) {
     private val views = ConcurrentHashMap<String, TextView>()
     private val expiryTasks = ConcurrentHashMap<String, Runnable>()
     private val entryBackgroundColors = ConcurrentHashMap<String, Int>()
+    private val entrySelectedStates = ConcurrentHashMap<String, Boolean>()
     private val lastTouchedAt = ConcurrentHashMap<String, Long>()
     private val maximumActiveOverlays = 24
     // Invalidate queued show/keep work immediately when a connection is cleared.
@@ -39,7 +40,8 @@ class OverlayController(private val context: Context) {
         width: Double,
         height: Double,
         backgroundColorHex: String? = null,
-        ttlMs: Long = 2500L
+        ttlMs: Long = 2500L,
+        isSelectedMenuItem: Boolean = false
     ) {
         if (!Settings.canDrawOverlays(context)) return
         val metrics = context.resources.displayMetrics
@@ -58,6 +60,8 @@ class OverlayController(private val context: Context) {
             if (view.text.toString() != text) view.text = text
 
             var backgroundChanged = false
+            val selectionChanged = entrySelectedStates[id] != isSelectedMenuItem
+            entrySelectedStates[id] = isSelectedMenuItem
             backgroundColorHex?.takeIf { it.startsWith("#") }?.let { hex ->
                 runCatching { Color.parseColor(hex) }.getOrNull()?.let { parsed ->
                     if (entryBackgroundColors[id] != parsed) {
@@ -79,8 +83,8 @@ class OverlayController(private val context: Context) {
                     PixelFormat.TRANSLUCENT
                 )
             val sizeChanged = params.height != rect.height
-            if (isNewView || sizeChanged || backgroundChanged) {
-                applyStyle(view, rect.height, entryBackgroundColors[id])
+            if (isNewView || sizeChanged || backgroundChanged || selectionChanged) {
+                applyStyle(view, rect.height, entryBackgroundColors[id], isSelectedMenuItem)
             }
             val layoutChanged = params.width != rect.width ||
                 params.height != rect.height ||
@@ -133,6 +137,7 @@ class OverlayController(private val context: Context) {
             expiryTasks.clear()
             views.keys.toList().forEach(::removeNow)
             entryBackgroundColors.clear()
+            entrySelectedStates.clear()
             lastTouchedAt.clear()
         }
     }
@@ -153,7 +158,7 @@ class OverlayController(private val context: Context) {
         handler.post {
             views.forEach { (id, view) ->
                 val height = (view.layoutParams as? WindowManager.LayoutParams)?.height ?: 24
-                applyStyle(view, height, entryBackgroundColors[id])
+                applyStyle(view, height, entryBackgroundColors[id], entrySelectedStates[id] == true)
             }
         }
     }
@@ -169,7 +174,7 @@ class OverlayController(private val context: Context) {
         includeFontPadding = false
     }
 
-    private fun applyStyle(view: TextView, height: Int, entryBackground: Int? = null) {
+    private fun applyStyle(view: TextView, height: Int, entryBackground: Int? = null, isSelectedMenuItem: Boolean = false) {
         view.setTextColor(textColor)
         view.setTextSize(TypedValue.COMPLEX_UNIT_PX, (height * fontScale).coerceAtLeast(7.0).toFloat())
         val drawable = GradientDrawable()
@@ -177,6 +182,9 @@ class OverlayController(private val context: Context) {
         drawable.setColor((selectedBackground and 0x00FFFFFF) or
             ((backgroundAlpha * 255).toInt() shl 24))
         drawable.cornerRadius = 2f
+        if (isSelectedMenuItem) {
+            drawable.setStroke((2 * context.resources.displayMetrics.density).toInt().coerceAtLeast(2), Color.YELLOW)
+        }
         view.background = drawable
     }
 
@@ -190,6 +198,7 @@ class OverlayController(private val context: Context) {
     private fun removeNow(id: String) {
         expiryTasks.remove(id)?.let(handler::removeCallbacks)
         entryBackgroundColors.remove(id)
+        entrySelectedStates.remove(id)
         lastTouchedAt.remove(id)
         views.remove(id)?.let { view ->
             runCatching { if (view.isAttachedToWindow) windowManager.removeView(view) }

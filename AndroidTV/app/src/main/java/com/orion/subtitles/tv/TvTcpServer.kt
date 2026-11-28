@@ -118,7 +118,8 @@ class TvTcpServer(
                     width = rect.optDouble("width", Double.NaN),
                     height = rect.optDouble("height", Double.NaN),
                     backgroundColorHex = message.optString("backgroundColor").takeIf { it.startsWith("#") },
-                    ttlMs = message.optLong("ttlMs", 3000L)
+                    ttlMs = message.optLong("ttlMs", 3000L),
+                    isSelectedMenuItem = message.optBoolean("selected", false)
                 )
             }
             "subtitle.keep" -> overlay.keep(message.optString("id"), message.optLong("ttlMs", 3000L))

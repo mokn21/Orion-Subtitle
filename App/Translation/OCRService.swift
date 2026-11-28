@@ -71,12 +71,14 @@ final class OCRService {
             let fullFrameBox = OCRCoordinateMapper.fullFrameRect(for: local, in: selectedRegion)
             let tvFrameBox = OCRCoordinateMapper.tvFrameRect(for: local, in: selectedRegion)
             let sampledBackground = Self.sampleSurroundingColor(in: fullImage, normalizedBox: fullFrameBox, extent: extent)
+            let visualBrightness = Self.sampleTextBrightness(in: fullImage, normalizedBox: fullFrameBox, extent: extent)
             return OCRTextObservation(
                 text: text,
                 boundingBox: fullFrameBox,
                 confidence: candidate.confidence,
                 backgroundColorHex: sampledBackground,
-                tvBoundingBox: tvFrameBox
+                tvBoundingBox: tvFrameBox,
+                visualBrightness: visualBrightness
             )
         }
         guard !observations.isEmpty else { return nil }
@@ -161,4 +163,30 @@ enum TranslationError: LocalizedError {
         case .unavailable(let reason), .failed(let reason): return reason
         }
     }
+    /// Relative glyph brightness cue; menu detection compares it with sibling rows.
+    private static func sampleTextBrightness(in image: CIImage, normalizedBox: CGRect, extent: CGRect) -> Double? {
+        let box = CGRect(x: extent.minX + normalizedBox.minX * extent.width,
+                         y: extent.minY + normalizedBox.minY * extent.height,
+                         width: normalizedBox.width * extent.width,
+                         height: normalizedBox.height * extent.height).intersection(extent)
+        guard !box.isNull, box.width >= 2, box.height >= 2 else { return nil }
+        let insetX = box.width * 0.08
+        let insetY = box.height * 0.12
+        let rect = CGRect(x: box.minX + insetX, y: box.minY + insetY,
+                          width: max(1, box.width - insetX * 2),
+                          height: max(1, box.height - insetY * 2)).intersection(extent)
+        let maximum = image.applyingFilter("CIAreaMaximum", parameters: [kCIInputExtentKey: CIVector(cgRect: rect)])
+        var pixel = [UInt8](repeating: 0, count: 4)
+        pixel.withUnsafeMutableBytes { buffer in
+            guard let address = buffer.baseAddress else { return }
+            Self.colorSamplingContext.render(maximum, toBitmap: address, rowBytes: 4,
+                bounds: CGRect(x: 0, y: 0, width: 1, height: 1), format: .RGBA8,
+                colorSpace: CGColorSpaceCreateDeviceRGB())
+        }
+        let r = Double(pixel[0]) / 255
+        let g = Double(pixel[1]) / 255
+        let b = Double(pixel[2]) / 255
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b
+    }
+
 }

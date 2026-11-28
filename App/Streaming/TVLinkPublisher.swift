@@ -149,6 +149,7 @@ final class TVLinkPublisher {
             let fingerprint = [
                 entry.translatedText,
                 entry.backgroundColorHex,
+                entry.isSelectedMenuItem ? "selected" : "normal",
                 String(Int((Double(box.minX) * 1000).rounded())),
                 String(Int((Double(box.minY) * 1000).rounded())),
                 String(Int((Double(box.width) * 1000).rounded())),
@@ -160,6 +161,7 @@ final class TVLinkPublisher {
                 "id": id,
                 "text": entry.translatedText,
                 "backgroundColor": entry.backgroundColorHex,
+                "selected": entry.isSelectedMenuItem,
                 "rect": [
                     "x": Double(box.minX),
                     "y": Double(box.minY),

@@ -728,7 +728,7 @@ struct StreamView: View {
                                 Text(entry.translatedText)
                                     .font(.system(
                                         size: min(session.settings.translationFontSize, max(7, frame.height * 0.68)),
-                                        weight: .semibold
+                                        weight: entry.isSelectedMenuItem ? .heavy : .semibold
                                     ))
                                     .multilineTextAlignment(.center)
                                     .environment(\.layoutDirection, Locale.current.language.languageCode?.identifier == "ar" ? .rightToLeft : .leftToRight)
@@ -743,6 +743,11 @@ struct StreamView: View {
                             // never enlarge the cover across nearby game content.
                             .frame(width: max(1, frame.width), height: max(1, frame.height))
                             .clipShape(RoundedRectangle(cornerRadius: 2))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 2)
+                                    .stroke(entry.isSelectedMenuItem ? Color.yellow.opacity(0.95) : .clear,
+                                            lineWidth: entry.isSelectedMenuItem ? 2 : 0)
+                            }
                             .position(x: frame.midX, y: frame.midY)
 					}
 					}
