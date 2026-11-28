@@ -126,6 +126,7 @@ class MainActivity : Activity() {
         })
         controlCard.addView(actionButton("تشغيل المستقبل", true) { startReceiver() }, matchWrap().apply { topMargin = dp(5) })
         controlCard.addView(actionButton("اختبار ظهور الترجمة", false) { testOverlay() }, matchWrap().apply { topMargin = dp(8) })
+        controlCard.addView(actionButton("تنظيف الشاشة", false) { clearOverlays() }, matchWrap().apply { topMargin = dp(8) })
         controlCard.addView(actionButton("إيقاف المستقبل", false) { stopReceiver() }, matchWrap().apply { topMargin = dp(8) })
         controlCard.addView(text("يجب أن يكون الآيباد والتلفزيون على شبكة Wi-Fi نفسها.", 12f, MUTED, false, Gravity.START).apply {
             setPadding(dp(4), dp(12), dp(4), 0)
@@ -261,6 +262,11 @@ class MainActivity : Activity() {
             return
         }
         val intent = Intent(this, TvReceiverService::class.java).setAction(TvReceiverService.ACTION_TEST)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
+    }
+
+    private fun clearOverlays() {
+        val intent = Intent(this, TvReceiverService::class.java).setAction(TvReceiverService.ACTION_CLEAR)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
     }
 
