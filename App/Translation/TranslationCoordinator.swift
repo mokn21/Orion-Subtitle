@@ -57,6 +57,9 @@ final class TranslationCoordinator {
     private var cache: [String: String] = [:]
     private var cacheOrder: [String] = []
     private let maximumCachedTranslations = 512
+    // Bound the number of live SwiftUI overlays as well as the TV receiver's
+    // own overlay cap, preventing dense menus from growing the view tree forever.
+    private let maximumVisibleEntries = 24
     // A short grace period tolerates a missed OCR frame without leaving stale TV captions.
     private let visibleEntryExpirationInterval: TimeInterval = 0.85
 
@@ -457,6 +460,12 @@ final class TranslationCoordinator {
 
         if isNewVisibleEntry {
             latestEntry = entry
+            if visibleEntries.count >= maximumVisibleEntries,
+               let oldestIndex = visibleEntries.indices.min(by: {
+                   visibleEntries[$0].lastSeenAt < visibleEntries[$1].lastSeenAt
+               }) {
+                visibleEntries.remove(at: oldestIndex)
+            }
             visibleEntries.append(entry)
             recentEntries = ([entry] + recentEntries).prefix(6).map { $0 }
             historyStore?.append(
