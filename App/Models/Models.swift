@@ -152,7 +152,7 @@ struct StreamSettings: Codable, Equatable {
     var translationSecondRegion: CaptureRegion = CaptureRegion(x: 0.55, y: 0.05, width: 0.4, height: 0.3)
 	var translationFontSize: Double = 28
 	var translationPositionY: Double = 0.88
-	var translationIntervalMs: Int = 100
+	var translationIntervalMs: Int = 250
 	var translationTextColor: TranslationColorChoice = .white
 	var translationBackgroundColor: TranslationColorChoice = .black
 	var translationBackgroundOpacity: Double = 0.72
