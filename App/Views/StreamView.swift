@@ -628,6 +628,11 @@ struct StreamView: View {
 			quickTool(tvLinkPublisher.isConnected ? "TV متصل" : "التلفاز", icon: "tv") {
 				showTVLinkSetup = true
 			}
+            quickTool("تنظيف", icon: "eraser") {
+                session.translationCoordinator.clearVisibleEntries()
+                session.translationCoordinator.secondaryCoordinator?.clearVisibleEntries()
+                tvLinkPublisher.clearAllSubtitles()
+            }
 			quickTool("OCR", icon: session.translationCoordinator.state == .running ? "text.viewfinder" : "text.viewfinder.slash") {
 				if session.translationCoordinator.state == .running {
 					session.translationCoordinator.pause()
