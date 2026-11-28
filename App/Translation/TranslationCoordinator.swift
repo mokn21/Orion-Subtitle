@@ -155,6 +155,23 @@ final class TranslationCoordinator {
 		translationStatusMessage = "تم إيقاف الترجمة."
     }
 
+    /// Clears visible and queued translations without stopping the Remote Play video.
+    /// Invalidating the generation prevents an in-flight translation from restoring
+    /// captions after the user explicitly cleans the screen.
+    func clearVisibleEntries() {
+        visibleExpiryTask?.cancel()
+        visibleExpiryTask = nil
+        nextGeneration &+= 1
+        translationTasks.values.forEach { $0.cancel() }
+        translationTasks.removeAll()
+        latestOCRObservations = []
+        lastObservationFingerprint = ""
+        latestEntry = nil
+        visibleEntries = []
+        recentEntries = []
+        translationStatusMessage = "تم تنظيف الترجمات الظاهرة."
+    }
+
     func submit(pixelBuffer: CVPixelBuffer) {
         if secondaryEnabled {
             secondaryCoordinator?.submit(pixelBuffer: pixelBuffer)
