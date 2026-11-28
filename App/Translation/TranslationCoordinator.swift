@@ -162,6 +162,13 @@ final class TranslationCoordinator {
     /// Invalidating the generation prevents an in-flight translation from restoring
     /// captions after the user explicitly cleans the screen.
     func clearVisibleEntries() {
+        // Invalidate an OCR request already running as well as pending translations.
+        // Otherwise its result could repopulate the screen immediately after a clear.
+        ocrGeneration &+= 1
+        ocrTask?.cancel()
+        ocrTask = nil
+        pendingOCRFrame = nil
+        lastSubmittedAt = nil
         visibleExpiryTask?.cancel()
         visibleExpiryTask = nil
         nextGeneration &+= 1

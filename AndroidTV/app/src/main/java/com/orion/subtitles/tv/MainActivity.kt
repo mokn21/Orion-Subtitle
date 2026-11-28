@@ -267,7 +267,7 @@ class MainActivity : Activity() {
 
     private fun clearOverlays() {
         val intent = Intent(this, TvReceiverService::class.java).setAction(TvReceiverService.ACTION_CLEAR)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(intent) else startService(intent)
+        startService(intent)
     }
 
     private fun startReceiver() {

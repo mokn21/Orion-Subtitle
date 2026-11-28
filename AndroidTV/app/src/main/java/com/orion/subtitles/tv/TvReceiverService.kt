@@ -38,8 +38,15 @@ class TvReceiverService : Service() {
                 overlay?.show("orion-tv-test", "اختبار Orion TV", 0.25, 0.40, 0.50, 0.16, ttlMs = 5000L)
             }
             ACTION_CLEAR -> {
-                startReceiverIfNeeded()
-                overlay?.clearAll()
+                // If the receiver is already running, clear its overlays.
+                // Do not start the network receiver just because the user tapped Clear.
+                val currentOverlay = overlay
+                if (currentOverlay != null) {
+                    currentOverlay.clearAll()
+                } else {
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
             }
             else -> startReceiverIfNeeded()
         }
